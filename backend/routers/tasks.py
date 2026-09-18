@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -12,6 +12,11 @@ from schemas import (
     TaskApprove,
     TaskReject,
 )
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from services.verification import verify_github_link
+from services.escrow import get_onchain_escrow_task, verify_payment_release_tx
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -87,6 +92,20 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
     return _get_task_or_404(task_id, db)
 
 
+@router.get("/{task_id}/escrow")
+def get_task_escrow(task_id: int, db: Session = Depends(get_db)):
+    """Fetch real-time on-chain escrow status for a task from Arc Testnet."""
+    task = _get_task_or_404(task_id, db)
+    onchain = get_onchain_escrow_task(task.id)
+    return {
+        "task_id": task.id,
+        "db_status": task.status,
+        "bounty_usdc": float(task.bounty_usdc),
+        "tx_hash": task.tx_hash,
+        "onchain": onchain,
+    }
+
+
 # ── Lifecycle: claim → submit → approve / reject ─────────────
 
 @router.patch("/{task_id}/claim", response_model=TaskResponse)
@@ -135,6 +154,13 @@ def submit_proof(task_id: int, payload: TaskSubmitProof, db: Session = Depends(g
             detail="Only the assigned worker can submit proof",
         )
 
+    # Verify the link is valid (e.g. valid GitHub PR or active website)
+    if not verify_github_link(payload.proof):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid proof link. If this is a GitHub PR, ensure the repository is public and the PR exists.",
+        )
+
     task.proof = payload.proof
     task.status = "submitted"
     db.commit()
@@ -163,7 +189,21 @@ def approve_task(task_id: int, payload: TaskApprove, db: Session = Depends(get_d
 
     task.status = "approved"
     if payload.tx_hash:
+        worker = db.query(User).filter(User.id == task.worker_id).first()
+        worker_wallet = worker.wallet_address if worker else None
+
+        verification = verify_payment_release_tx(
+            tx_hash=payload.tx_hash,
+            task_id=task.id,
+            expected_worker=worker_wallet,
+        )
+        if not verification.get("verified"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Escrow on-chain verification failed: {verification.get('error')}",
+            )
         task.tx_hash = payload.tx_hash
+
     db.commit()
     db.refresh(task)
     return task
@@ -194,3 +234,42 @@ def reject_task(task_id: int, payload: TaskReject, db: Session = Depends(get_db)
     db.commit()
     db.refresh(task)
     return task
+
+
+@router.delete("/{task_id}", status_code=status.HTTP_200_OK)
+def delete_task(
+    task_id: int,
+    wallet_address: str = Query(..., description="Wallet address of the task poster"),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a task posted by the user.
+
+    Auth: caller must be the task poster.
+    Constraint: Only tasks that are 'open' or 'rejected' can be deleted.
+    Tasks that are 'claimed', 'submitted', or 'approved' cannot be deleted.
+    """
+    task = _get_task_or_404(task_id, db)
+    poster = _get_user_by_wallet_or_404(wallet_address, db)
+
+    if poster.id != task.poster_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the task poster can delete this task",
+        )
+
+    if task.status in ("claimed", "submitted"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete task in '{task.status}' status. A worker is currently assigned.",
+        )
+
+    if task.status == "approved":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete an already approved/completed task.",
+        )
+
+    db.delete(task)
+    db.commit()
+    return {"message": f"Task #{task_id} successfully deleted", "id": task_id}

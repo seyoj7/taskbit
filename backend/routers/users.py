@@ -46,7 +46,6 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 
     user = User(
         wallet_address=payload.wallet_address,
-        username=payload.username,
     )
     db.add(user)
     db.commit()

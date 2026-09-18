@@ -8,7 +8,6 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     wallet_address = Column(String(42), unique=True, nullable=False, index=True)
-    username = Column(String(100), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships

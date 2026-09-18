@@ -27,7 +27,6 @@ class UserCreate(BaseModel):
         max_length=42,
         description="Ethereum wallet address (0x + 40 hex chars)",
     )
-    username: Optional[str] = Field(None, max_length=100)
 
     @field_validator("wallet_address")
     @classmethod
@@ -39,7 +38,6 @@ class UserResponse(BaseModel):
     """Serialised user returned by the API."""
     id: int
     wallet_address: str
-    username: Optional[str]
     created_at: datetime
 
     model_config = {"from_attributes": True}
