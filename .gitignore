@@ -1,0 +1,6 @@
+.next
+.agents
+.env
+node_modules
+next-env.d.ts
+__pycache__
