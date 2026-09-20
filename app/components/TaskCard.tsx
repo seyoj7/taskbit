@@ -50,7 +50,7 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
 
   return (
     <div
-      onClick={() => router.push(`/tasks/${id}`)}
+      onClick={() => router.push(`/overview/${id}`)}
       className="antares-card antares-card-interactive"
       style={{
         cursor: 'pointer',

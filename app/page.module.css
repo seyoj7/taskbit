@@ -1,0 +1,242 @@
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 48px 16px;
+  flex: 1;
+}
+
+.heroContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+}
+
+.heroSection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 48px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.heroLeft {
+  animation: rise 0.8s var(--spring);
+  flex: 1 1 400px;
+}
+
+.heroTitle {
+  font-size: clamp(40px, 5vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  color: var(--fg);
+  margin-bottom: 24px;
+}
+
+.heroSubtitle {
+  font-size: clamp(16px, 1.5vw, 20px);
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 500px;
+}
+
+.actionPanel {
+  padding: 24px;
+  animation-delay: 0.2s;
+  width: 100%;
+  flex: 1 1 320px;
+  max-width: 440px;
+}
+
+.actionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.actionTitle {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--fg);
+}
+
+.actionDesc {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.6;
+}
+
+.simBox {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 16px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.simRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.simLabel {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.simControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.simBtn {
+  height: 36px;
+  width: 36px;
+  font-size: 18px;
+}
+
+.simValue {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.summaryTable {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.summaryDt {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.summaryDd {
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.summaryDdSmall {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.summaryRowTotal {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+  font-weight: 700;
+}
+
+.summaryDtTotal {
+  color: var(--fg);
+}
+
+.summaryDdTotal {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+.actionButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.actionBtn {
+  height: 48px;
+  width: 100%;
+  font-size: 15px;
+}
+
+.lifecycleSection {
+  padding: 32px;
+  animation-delay: 0.3s;
+}
+
+.lifecycleHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.lifecycleTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--fg);
+}
+
+.lifecycleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.stepCard {
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stepBgNumber {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  font-size: 80px;
+  font-weight: 900;
+  color: var(--line);
+  opacity: 0.3;
+  line-height: 1;
+}
+
+.stepContent {
+  position: relative;
+  z-index: 2;
+}
+
+.stepBadge {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 10px;
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.stepTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 8px;
+}
+
+.stepDesc {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}

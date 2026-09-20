@@ -10,18 +10,18 @@ import { fetchTaskById, claimTask, submitTaskWork, approveTask, rejectTask, dele
 import { useWallet } from '../../components/WalletProvider';
 
 const TASK_ESCROW_ADDRESS = '0x3A2ADedbd0f5682a4DDCDeE6a3ef4bf5EB77503B';
-const MOCK_USDC_ADDRESS = '0x1234567890123456789012345678901234567890'; // Replace with actual on Arc
+// const MOCK_USDC_ADDRESS = '0x1234567890123456789012345678901234567890'; // Replace with actual on Arc
 
-const TASK_ESCROW_ABI = [
-  "function createTask(uint256 taskId, address worker, uint256 bounty) external",
-  "function fundTask(uint256 taskId) external",
-  "function releasePayment(uint256 taskId) external"
-];
+// const TASK_ESCROW_ABI = [
+//   "function createTask(uint256 taskId, address worker, uint256 bounty) external",
+//   "function fundTask(uint256 taskId) external",
+//   "function releasePayment(uint256 taskId) external"
+// ];
 
-const ERC20_ABI = [
-  "function approve(address spender, uint256 amount) external returns (bool)",
-  "function decimals() view returns (uint8)"
-];
+// const ERC20_ABI = [
+//   "function approve(address spender, uint256 amount) external returns (bool)",
+//   "function decimals() view returns (uint8)"
+// ];
 
 export default function TaskDetail({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -92,11 +92,11 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       
-      const escrowContract = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
-      const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, ERC20_ABI, signer);
+      // const escrowContract = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
+      // const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, ERC20_ABI, signer);
       
-      const decimals = 6; // Standard for USDC
-      const amountWei = ethers.parseUnits(task.bounty_usdc.toString(), decimals);
+      // const decimals = 6; // Standard for USDC
+      // const amountWei = ethers.parseUnits(task.bounty_usdc.toString(), decimals);
       
       // We will perform a batched flow for demonstration (in reality, poster might fund earlier).
       // Step A: Approve USDC
@@ -109,7 +109,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       setTxStatus("Registering Escrow on-chain...");
       // Note: we need the worker address, but we only have worker_id from backend. 
       // In a real app, backend would return worker_wallet_address. We will mock it for now.
-      const mockWorkerAddress = "0x000000000000000000000000000000000000dEaD"; 
+      // const mockWorkerAddress = "0x000000000000000000000000000000000000dEaD"; 
       // UNCOMMENT in production:
       // const createTx = await escrowContract.createTask(task.id, mockWorkerAddress, amountWei);
       // await createTx.wait();
@@ -163,7 +163,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     setIsSubmitting(true);
     try {
       await deleteTask(task!.id, account);
-      router.push('/dashboard');
+      router.push('/marketplace');
     } catch (err: any) {
       alert(err.message || "Failed to delete task");
       setIsSubmitting(false);
@@ -206,7 +206,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
             <p style={{ fontSize: '15px', color: 'var(--muted)', marginBottom: '24px' }}>
               {error || "The requested task does not exist or has been removed."}
             </p>
-            <Link href="/dashboard" className="antares-btn-surface">
+            <Link href="/marketplace" className="antares-btn-surface">
               ← Return to Marketplace
             </Link>
           </div>
@@ -228,7 +228,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
           
           {/* Breadcrumb */}
           <div className="animate-rise" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--muted)' }}>
-            <Link href="/dashboard" style={{ color: 'var(--muted)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color='var(--fg)'} onMouseLeave={(e) => e.currentTarget.style.color='var(--muted)'}>
+            <Link href="/marketplace" style={{ color: 'var(--muted)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color='var(--fg)'} onMouseLeave={(e) => e.currentTarget.style.color='var(--muted)'}>
               Marketplace
             </Link>
             <span style={{ opacity: 0.5 }}>/</span>

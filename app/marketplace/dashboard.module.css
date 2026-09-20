@@ -1,0 +1,170 @@
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 40px 16px;
+  flex: 1;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.statBar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  background-color: var(--surface-2);
+}
+
+.statItem {
+  padding: 16px 24px;
+  border-right: 1px solid var(--line);
+}
+
+.statItemLast {
+  padding: 16px 24px;
+}
+
+.statValue {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.statValueSmall {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statValueAccent {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+
+.statCurrency {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.statBadge {
+  padding: 2px 8px;
+}
+
+.statSubtitle {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.filtersContainer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  animation-delay: 0.1s;
+}
+
+.pillContainer {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.searchWrapper {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+}
+
+.searchInput {
+  height: 44px;
+  padding: 0 16px 0 42px;
+  font-size: 14px;
+  border-radius: 9999px;
+  background: var(--surface-2);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.loadingContainer {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px auto;
+}
+
+.errorContainer {
+  padding: 32px;
+  text-align: center;
+  color: var(--down);
+  background-color: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.errorIcon {
+  margin: 0 auto 12px;
+}
+
+.emptyStateContainer {
+  padding: 80px 24px;
+  text-align: center;
+  background: var(--surface-2);
+  border-style: dashed;
+}
+
+.emptyStateIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.emptyStateTitle {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--fg);
+}
+
+.emptyStateDesc {
+  font-size: 15px;
+  color: var(--muted);
+  max-width: 400px;
+  margin: 0 auto 24px auto;
+  line-height: 1.5;
+}
+
+.taskGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+  animation-delay: 0.2s;
+}

@@ -275,6 +275,24 @@ app.add_middleware(
 # browser silently blocks the request with "Failed to fetch".
 @app.middleware("http")
 async def handle_private_network_access(request: Request, call_next):
+    # If it's a PNA preflight, intercept and return 200 with all required headers
+    if (
+        request.method == "OPTIONS"
+        and request.headers.get("access-control-request-private-network")
+    ):
+        origin = request.headers.get("origin", "")
+        allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+        resp_origin = origin if origin in allowed_origins else allowed_origins[0]
+        return Response(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": resp_origin,
+                "Access-Control-Allow-Methods": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Private-Network": "true",
+            },
+        )
     response = await call_next(request)
     if request.headers.get("access-control-request-private-network"):
         response.headers["Access-Control-Allow-Private-Network"] = "true"
