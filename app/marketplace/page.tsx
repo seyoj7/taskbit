@@ -51,7 +51,6 @@ export default function Dashboard() {
     });
   }, [tasks, searchQuery]);
 
-  // Aggregate stats
   const totalBounties = useMemo(() => {
     return tasks.reduce((sum, t) => sum + Number(t.bounty_usdc || 0), 0);
   }, [tasks]);
@@ -67,7 +66,6 @@ export default function Dashboard() {
       <main className={styles.main}>
         <div className={styles.container}>
           
-          {/* Antares Metrics Stat Bar */}
           <section className="antares-card animate-rise">
             <div className={styles.statBar}>
               <div className={styles.statItem}>
@@ -109,9 +107,7 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Search, Filter Tabs, and Controls */}
           <div className={`animate-rise ${styles.filtersContainer}`}>
-            {/* Status Tabs (Segmented Pill Controller) */}
             <div className={`antares-nav-pill-container ${styles.pillContainer}`}>
               {STATUS_TABS.map((tab) => (
                 <button
@@ -124,7 +120,6 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Search Input */}
             <div className={styles.searchWrapper}>
               <input
                 type="text"
@@ -146,7 +141,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Loading, Error, or Task Grid */}
           {loading && (
             <div className={styles.loadingContainer}>
               <div className={styles.spinner} />

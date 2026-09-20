@@ -85,7 +85,6 @@ export async function submitTaskWork(taskId: number, wallet_address: string, pro
       const errData = await res.json();
       if (errData.detail) errMsg = errData.detail;
     } catch {
-      // ignore JSON parse error
     }
     throw new Error(errMsg);
   }
@@ -126,7 +125,6 @@ export async function deleteTask(taskId: number, wallet_address: string): Promis
       const errData = await res.json();
       if (errData.detail) errMsg = errData.detail;
     } catch {
-      // ignore
     }
     throw new Error(errMsg);
   }

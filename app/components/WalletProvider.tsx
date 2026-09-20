@@ -35,7 +35,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error("Authentication failed:", err);
       alert("Wallet connected, but backend authentication failed. Make sure the FastAPI backend is running.");
-      // Still set the account so the UI updates
       setAccount(address);
     }
   };

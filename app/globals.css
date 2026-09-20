@@ -7,7 +7,6 @@
   --muted: #6b7280;
   --line: #e5e7eb;
   
-  /* Taskbit Signature Neon Green/Lime */
   --accent: #d9f91d;
   --accent-soft: #f7fee7;
   --accent-fg: #1a2e05;
@@ -112,7 +111,6 @@ button {
   font-family: inherit;
 }
 
-/* Premium Glassmorphism */
 .glass {
   background: var(--glass-tint);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
@@ -121,7 +119,6 @@ button {
   box-shadow: var(--glass-specular), var(--glass-drop);
 }
 
-/* Cards */
 .antares-card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -146,7 +143,6 @@ button {
   box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--accent-glow);
 }
 
-/* Buttons */
 .antares-btn-accent {
   display: inline-flex;
   align-items: center;
@@ -249,7 +245,6 @@ button {
   transform: rotate(5deg) scale(1.05);
 }
 
-/* Nav Pills */
 .antares-nav-pill-container {
   display: inline-flex;
   align-items: center;
@@ -287,7 +282,6 @@ button {
   border: 1px solid var(--line);
 }
 
-/* Badges */
 .antares-badge {
   display: inline-flex;
   align-items: center;
@@ -328,7 +322,6 @@ button {
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-/* Typography */
 .text-label-micro {
   font-size: 11px;
   font-weight: 700;
@@ -350,7 +343,6 @@ button {
   background-clip: text;
 }
 
-/* Inputs */
 .antares-input {
   width: 100%;
   padding: 14px 18px;
@@ -375,7 +367,6 @@ button {
   opacity: 0.7;
 }
 
-/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -391,7 +382,6 @@ button {
   background: var(--muted);
 }
 
-/* Animations */
 @keyframes rise {
   0% { opacity: 0; transform: translateY(16px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -415,7 +405,6 @@ button {
   animation: 2s ease-out infinite pulse-ring;
 }
 
-/* Hover reveal */
 .hover-reveal {
   opacity: 0;
   transform: translateY(4px);

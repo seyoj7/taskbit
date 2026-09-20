@@ -19,7 +19,6 @@ export default function Home() {
         <div className={styles.heroContainer}>
           
           <section className={styles.heroSection}>
-            {/* Hero Headline */}
             <div className={styles.heroLeft}>
               <h1 className={styles.heroTitle}>
                 The Web3 native <br/>
@@ -30,7 +29,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Right Column: Interactive Quick-Action Panel */}
             <div className={`antares-card animate-rise ${styles.actionPanel}`}>
               <div className={styles.actionHeader}>
                 <h2 className={styles.actionTitle}>
@@ -42,7 +40,6 @@ export default function Home() {
                 Explore open bounties or create your own task to fund directly with USDC escrow.
               </p>
 
-              {/* Bounty Simulator Box */}
               <div className={styles.simBox}>
                 <div className={styles.simRow}>
                   <span className={styles.simLabel}>Example Bounty</span>
@@ -66,7 +63,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Calculation Summary Table */}
               <dl className={styles.summaryTable}>
                 <div className={styles.summaryRow}>
                   <dt className={styles.summaryDt}>Escrow Deposit</dt>
@@ -82,7 +78,6 @@ export default function Home() {
                 </div>
               </dl>
 
-              {/* Action Buttons */}
               <div className={styles.actionButtons}>
                 <Link
                   href="/marketplace"
@@ -102,7 +97,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Antares Schedule / Flow Section */}
           <section className={`antares-card animate-rise ${styles.lifecycleSection}`}>
             <div className={styles.lifecycleHeader}>
               <h2 className={styles.lifecycleTitle}>

@@ -58,7 +58,6 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
         flexDirection: 'column',
       }}
     >
-      {/* Visual Thumbnail Area */}
       <div
         style={{
           height: '150px',
@@ -107,7 +106,6 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
         </div>
       </div>
 
-      {/* Content Area */}
       <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <h3
           style={{
@@ -139,7 +137,6 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
         </p>
       </div>
 
-      {/* Footer Area with Bounty */}
       <div
         style={{
           borderTop: '1px solid var(--line)',

@@ -38,13 +38,11 @@ export default function Navbar() {
   return (
     <header className={styles.header}>
       <div className={styles.container}>
-        {/* Brand */}
         <Link href="/" className={styles.brandLink}>
           <img src="/taskbit_logo.png" alt="Taskbit Logo" className={styles.logo} />
           <span className={styles.brandName}>Taskbit</span>
         </Link>
 
-        {/* Center Pill Segmented Nav */}
         <div className={`antares-nav-pill-container ${styles.navPills}`}>
           <Link
             href="/marketplace"
@@ -93,9 +91,7 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Right Section: Wallet */}
         <div className={styles.rightSection}>
-          {/* Wallet Button with Dropdown */}
           {account ? (
             <div ref={dropdownRef} className={styles.walletContainer}>
               <button
@@ -119,10 +115,8 @@ export default function Navbar() {
                 </svg>
               </button>
 
-              {/* Dropdown Menu */}
               {isDropdownOpen && (
                 <div className={styles.dropdownMenu}>
-                  {/* Account Summary & Copy */}
                   <div className={styles.accountSummary}>
                     <div className={styles.accountDetails}>
                       <span className={styles.accountLabel}>Connected Wallet</span>
@@ -147,7 +141,6 @@ export default function Navbar() {
 
                   <div className={styles.divider} />
 
-                  {/* Disconnect Option */}
                   <button
                     type="button"
                     onClick={() => {

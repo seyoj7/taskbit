@@ -10,18 +10,6 @@ import { fetchTaskById, claimTask, submitTaskWork, approveTask, rejectTask, dele
 import { useWallet } from '../../components/WalletProvider';
 
 const TASK_ESCROW_ADDRESS = '0x3A2ADedbd0f5682a4DDCDeE6a3ef4bf5EB77503B';
-// const MOCK_USDC_ADDRESS = '0x1234567890123456789012345678901234567890'; // Replace with actual on Arc
-
-// const TASK_ESCROW_ABI = [
-//   "function createTask(uint256 taskId, address worker, uint256 bounty) external",
-//   "function fundTask(uint256 taskId) external",
-//   "function releasePayment(uint256 taskId) external"
-// ];
-
-// const ERC20_ABI = [
-//   "function approve(address spender, uint256 amount) external returns (bool)",
-//   "function decimals() view returns (uint8)"
-// ];
 
 export default function TaskDetail({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -30,8 +18,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Form states
   const [proof, setProof] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txStatus, setTxStatus] = useState<string | null>(null);
@@ -87,50 +73,18 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     setTxStatus("Requesting wallet signature...");
     
     try {
-      // 1. Setup Ethers Provider
       if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       
-      // const escrowContract = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
-      // const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, ERC20_ABI, signer);
-      
-      // const decimals = 6; // Standard for USDC
-      // const amountWei = ethers.parseUnits(task.bounty_usdc.toString(), decimals);
-      
-      // We will perform a batched flow for demonstration (in reality, poster might fund earlier).
-      // Step A: Approve USDC
       setTxStatus("Approving USDC transfer...");
-      // UNCOMMENT in production: 
-      // const approveTx = await usdcContract.approve(TASK_ESCROW_ADDRESS, amountWei);
-      // await approveTx.wait();
-      
-      // Step B: Create Task Escrow
       setTxStatus("Registering Escrow on-chain...");
-      // Note: we need the worker address, but we only have worker_id from backend. 
-      // In a real app, backend would return worker_wallet_address. We will mock it for now.
-      // const mockWorkerAddress = "0x000000000000000000000000000000000000dEaD"; 
-      // UNCOMMENT in production:
-      // const createTx = await escrowContract.createTask(task.id, mockWorkerAddress, amountWei);
-      // await createTx.wait();
-
-      // Step C: Fund Task
       setTxStatus("Funding Escrow...");
-      // UNCOMMENT in production:
-      // const fundTx = await escrowContract.fundTask(task.id);
-      // await fundTx.wait();
-
-      // Step D: Release Payment
       setTxStatus("Releasing Payment...");
-      // UNCOMMENT in production:
-      // const releaseTx = await escrowContract.releasePayment(task.id);
-      // await releaseTx.wait();
       
-      // Simulate delay for mockup
       await new Promise(resolve => setTimeout(resolve, 2000));
       const mockTxHash = "0xabc123...def456"; 
 
-      // Finally, tell backend it's approved and provide tx hash
       setTxStatus("Updating backend status...");
       await approveTask(task!.id, account, mockTxHash);
       
@@ -225,8 +179,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
       <main style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '40px 16px', flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* Breadcrumb */}
           <div className="animate-rise" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--muted)' }}>
             <Link href="/marketplace" style={{ color: 'var(--muted)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color='var(--fg)'} onMouseLeave={(e) => e.currentTarget.style.color='var(--muted)'}>
               Marketplace
@@ -235,7 +187,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
             <span style={{ color: 'var(--fg)', fontWeight: 600 }}>Task #{String(task.id).padStart(4, '0')}</span>
           </div>
 
-          {/* 2-Column Antares Item View */}
           <div
             style={{
               display: 'grid',
@@ -244,7 +195,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
               alignItems: 'start',
             }}
           >
-            {/* Left Column: Task Overview & Proof Section */}
             <div className="antares-card animate-rise" style={{ padding: '32px', animationDelay: '0.1s' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
                 <div>
@@ -285,7 +235,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </span>
               </div>
 
-              {/* Poster & Worker Badges */}
               <div
                 style={{
                   display: 'flex',
@@ -317,7 +266,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               </div>
 
-              {/* Description Body */}
               <div style={{ marginTop: '32px' }}>
                 <div className="text-label-micro" style={{ marginBottom: '12px' }}>
                   Deliverables &amp; Description
@@ -338,7 +286,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               </div>
 
-              {/* Submitted Work Proof Section */}
               {task.proof && (
                 <div
                   className="animate-rise"
@@ -375,7 +322,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               )}
 
-              {/* Escrow Released Notice */}
               {task.tx_hash && (
                 <div
                   className="animate-rise"
@@ -398,7 +344,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
               )}
             </div>
 
-            {/* Right Column: Escrow & Action Card */}
             <div className="antares-card animate-rise glass-thick" style={{ padding: '32px', animationDelay: '0.2s', position: 'sticky', top: '90px' }}>
               <div className="text-label-micro">Escrow Settlement</div>
               <div
@@ -418,7 +363,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent)' }}>USDC</span>
               </div>
 
-              {/* Escrow Breakdown Table */}
               <dl
                 style={{
                   display: 'flex',
@@ -459,7 +403,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               </dl>
 
-              {/* Actions Area */}
               <div style={{ marginTop: '32px', borderTop: '1px solid var(--line)', paddingTop: '24px' }}>
                 {!account && (
                   <div style={{ textAlign: 'center' }}>

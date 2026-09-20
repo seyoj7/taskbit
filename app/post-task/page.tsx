@@ -31,8 +31,6 @@ export default function PostTask() {
 
     setLoading(true);
     try {
-      // 1. In a fully on-chain world, the poster would lock funds when creating, 
-      // but TaskEscrow.sol requires a known worker. So we just post to the backend for now.
       await createTask({
         title,
         description,
@@ -55,7 +53,6 @@ export default function PostTask() {
           className={`antares-card animate-rise glass-thick ${styles.modal}`}
           style={{ width: '100%', maxWidth: '100%' }}
         >
-          {/* Header */}
           <div className={styles.header}>
             <div>
               <div className="text-label-micro">Arc Escrow Marketplace</div>
