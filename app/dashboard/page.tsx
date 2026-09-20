@@ -5,7 +5,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import TaskCard from '../components/TaskCard';
 import PostTaskModal from '../components/PostTaskModal';
-import { fetchTasks, Task } from '../lib/api';
+import { fetchTasks, Task } from '../components/api';
 
 const STATUS_TABS = [
   { label: 'All Tasks', value: 'all' },

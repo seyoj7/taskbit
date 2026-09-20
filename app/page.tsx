@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import PostTaskModal from './components/PostTaskModal';
-import { useWallet } from './context/WalletContext';
+import { useWallet } from './components/WalletProvider';
 
 export default function Home() {
   const { account, connectWallet } = useWallet();

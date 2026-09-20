@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { createTask } from '../lib/api';
-import { useWallet } from '../context/WalletContext';
+import { createTask } from './api';
+import { useWallet } from './WalletProvider';
 
 interface PostTaskModalProps {
   isOpen: boolean;

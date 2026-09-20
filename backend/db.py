@@ -1,6 +1,35 @@
-from sqlalchemy import Column, Integer, String, Text, Numeric, Enum, DateTime, ForeignKey, func
-from sqlalchemy.orm import relationship
-from database import Base
+import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, Column, Integer, String, Text, Numeric, Enum, DateTime, ForeignKey, func
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, relationship
+
+# Load .env from project root (one level up from backend/)
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set in .env")
+
+engine_kwargs = {"pool_pre_ping": True}
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+elif DATABASE_URL.startswith("mysql://"):
+    DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 class User(Base):

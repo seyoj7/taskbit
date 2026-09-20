@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider } from "./context/WalletContext";
+import { WalletProvider } from "./components/WalletProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Taskbit · Arc-Native Tasks & Microgrants Marketplace",
   description: "Post verifiable tasks with USDC bounties. Builders complete tasks, submit proof, and get paid instantly via smart contract escrow.",
+  icons: {
+    icon: "/taskbit_logo.png",
+  },
 };
 
 export default function RootLayout({

@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
-import { fetchTaskById, claimTask, submitTaskWork, approveTask, rejectTask, deleteTask, Task } from '../../lib/api';
-import { useWallet } from '../../context/WalletContext';
+import { fetchTaskById, claimTask, submitTaskWork, approveTask, rejectTask, deleteTask, Task } from '../../components/api';
+import { useWallet } from '../../components/WalletProvider';
 
 export default function TaskDetail({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);

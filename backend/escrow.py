@@ -6,8 +6,8 @@ from web3 import Web3
 from web3.exceptions import TransactionNotFound, ContractLogicError
 from dotenv import load_dotenv
 
-# Ensure .env is loaded
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+# Load .env from project root (one level up from backend/)
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 CONTRACT_ADDRESS_RAW = os.getenv("CONTRACT_ADDRESS", "0x3A2ADedbd0f5682a4DDCDeE6a3ef4bf5EB77503B")
 RPC_URL = os.getenv("ARC_TESTNET_RPC_URL", "https://arc-testnet.drpc.org")
@@ -165,7 +165,7 @@ TASK_ESCROW_ABI = [
         "type": "function"
     },
     {
-        "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
         "name": "tasks",
         "outputs": [
             {"internalType": "address", "name": "creator", "type": "address"},

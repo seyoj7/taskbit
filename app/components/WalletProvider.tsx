@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ethers } from 'ethers';
-import { authWallet, User } from '../lib/api';
+import { authWallet, User } from './api';
 
 interface WalletContextType {
   account: string | null;

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { useWallet } from '../context/WalletContext';
+import { useWallet } from './WalletProvider';
 
 interface NavbarProps {
   onOpenPostTask?: () => void;
@@ -73,23 +73,16 @@ export default function Navbar({ onOpenPostTask }: NavbarProps) {
             flexShrink: 0,
           }}
         >
-          <div
+          <img
+            src="/taskbit_logo.png"
+            alt="Taskbit Logo"
             style={{
               width: '32px',
               height: '32px',
-              borderRadius: '10px',
-              backgroundColor: 'var(--accent)',
-              color: 'var(--accent-fg)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '15px',
-              boxShadow: '0 2px 8px rgba(206, 249, 16, 0.3)',
+              borderRadius: '6px',
+              objectFit: 'contain',
             }}
-          >
-            ✦
-          </div>
+          />
           <span
             style={{
               fontSize: '16px',
