@@ -3,10 +3,25 @@
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ethers } from 'ethers';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 import { fetchTaskById, claimTask, submitTaskWork, approveTask, rejectTask, deleteTask, Task } from '../../components/api';
 import { useWallet } from '../../components/WalletProvider';
+
+const TASK_ESCROW_ADDRESS = '0x3A2ADedbd0f5682a4DDCDeE6a3ef4bf5EB77503B';
+const MOCK_USDC_ADDRESS = '0x1234567890123456789012345678901234567890'; // Replace with actual on Arc
+
+const TASK_ESCROW_ABI = [
+  "function createTask(uint256 taskId, address worker, uint256 bounty) external",
+  "function fundTask(uint256 taskId) external",
+  "function releasePayment(uint256 taskId) external"
+];
+
+const ERC20_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function decimals() view returns (uint8)"
+];
 
 export default function TaskDetail({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -19,6 +34,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   // Form states
   const [proof, setProof] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [txStatus, setTxStatus] = useState<string | null>(null);
 
   const loadTask = async () => {
     try {
@@ -63,16 +79,68 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const handleApprove = async () => {
+  const handleApproveAndEscrow = async () => {
     if (!account) return connectWallet();
+    if (!task?.worker_id) return alert("No worker assigned.");
+    
     setIsSubmitting(true);
+    setTxStatus("Requesting wallet signature...");
+    
     try {
-      await approveTask(task!.id, account, "0xMockTransactionHash12345");
+      // 1. Setup Ethers Provider
+      if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const signer = await provider.getSigner();
+      
+      const escrowContract = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
+      const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, ERC20_ABI, signer);
+      
+      const decimals = 6; // Standard for USDC
+      const amountWei = ethers.parseUnits(task.bounty_usdc.toString(), decimals);
+      
+      // We will perform a batched flow for demonstration (in reality, poster might fund earlier).
+      // Step A: Approve USDC
+      setTxStatus("Approving USDC transfer...");
+      // UNCOMMENT in production: 
+      // const approveTx = await usdcContract.approve(TASK_ESCROW_ADDRESS, amountWei);
+      // await approveTx.wait();
+      
+      // Step B: Create Task Escrow
+      setTxStatus("Registering Escrow on-chain...");
+      // Note: we need the worker address, but we only have worker_id from backend. 
+      // In a real app, backend would return worker_wallet_address. We will mock it for now.
+      const mockWorkerAddress = "0x000000000000000000000000000000000000dEaD"; 
+      // UNCOMMENT in production:
+      // const createTx = await escrowContract.createTask(task.id, mockWorkerAddress, amountWei);
+      // await createTx.wait();
+
+      // Step C: Fund Task
+      setTxStatus("Funding Escrow...");
+      // UNCOMMENT in production:
+      // const fundTx = await escrowContract.fundTask(task.id);
+      // await fundTx.wait();
+
+      // Step D: Release Payment
+      setTxStatus("Releasing Payment...");
+      // UNCOMMENT in production:
+      // const releaseTx = await escrowContract.releasePayment(task.id);
+      // await releaseTx.wait();
+      
+      // Simulate delay for mockup
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const mockTxHash = "0xabc123...def456"; 
+
+      // Finally, tell backend it's approved and provide tx hash
+      setTxStatus("Updating backend status...");
+      await approveTask(task!.id, account, mockTxHash);
+      
       await loadTask();
     } catch (err: any) {
-      alert(err.message || "Failed to approve task");
+      console.error(err);
+      alert(err.message || "Failed to execute escrow transaction");
     } finally {
       setIsSubmitting(false);
+      setTxStatus(null);
     }
   };
 
@@ -106,19 +174,19 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     return (
       <>
         <Navbar />
-        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', textAlign: 'center', color: 'var(--muted)', flex: 1 }}>
+        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '120px 24px', textAlign: 'center', color: 'var(--muted)', flex: 1 }}>
           <div
             style={{
-              width: '24px',
-              height: '24px',
+              width: '32px',
+              height: '32px',
               borderRadius: '50%',
-              border: '2px solid var(--accent)',
+              border: '3px solid var(--accent)',
               borderTopColor: 'transparent',
               animation: 'spin 0.8s linear infinite',
-              margin: '0 auto 12px auto',
+              margin: '0 auto 16px auto',
             }}
           />
-          Loading task details from Arc Escrow…
+          <div style={{ fontSize: '15px', fontWeight: 600 }}>Loading task details from Arc Escrow…</div>
         </main>
         <Footer />
       </>
@@ -129,12 +197,13 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     return (
       <>
         <Navbar />
-        <main style={{ maxWidth: '600px', margin: '60px auto', padding: '0 24px', textAlign: 'center', flex: 1 }}>
-          <div className="antares-card" style={{ padding: '32px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--down)', marginBottom: '8px' }}>
+        <main style={{ maxWidth: '600px', margin: '80px auto', padding: '0 24px', textAlign: 'center', flex: 1 }}>
+          <div className="antares-card animate-rise" style={{ padding: '40px' }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px', color: 'var(--down)' }}>✕</div>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--fg)', marginBottom: '8px' }}>
               Error Loading Task
             </h2>
-            <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: '20px' }}>
+            <p style={{ fontSize: '15px', color: 'var(--muted)', marginBottom: '24px' }}>
               {error || "The requested task does not exist or has been removed."}
             </p>
             <Link href="/dashboard" className="antares-btn-surface">
@@ -154,48 +223,48 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     <>
       <Navbar />
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '32px 16px', flex: 1 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <main style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '40px 16px', flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--muted)' }}>
-            <Link href="/dashboard" style={{ color: 'var(--muted)', textDecoration: 'none' }}>
+          <div className="animate-rise" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--muted)' }}>
+            <Link href="/dashboard" style={{ color: 'var(--muted)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color='var(--fg)'} onMouseLeave={(e) => e.currentTarget.style.color='var(--muted)'}>
               Marketplace
             </Link>
-            <span>/</span>
-            <span style={{ color: 'var(--fg)', fontWeight: 600 }}>Task #{task.id}</span>
+            <span style={{ opacity: 0.5 }}>/</span>
+            <span style={{ color: 'var(--fg)', fontWeight: 600 }}>Task #{String(task.id).padStart(4, '0')}</span>
           </div>
 
           {/* 2-Column Antares Item View */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
               gap: '24px',
               alignItems: 'start',
             }}
           >
             {/* Left Column: Task Overview & Proof Section */}
-            <div className="antares-card" style={{ padding: '28px' }}>
+            <div className="antares-card animate-rise" style={{ padding: '32px', animationDelay: '0.1s' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
                 <div>
                   <span
                     style={{
-                      fontSize: '11px',
+                      fontSize: '12px',
                       fontWeight: 700,
-                      fontFamily: 'var(--font-geist-mono), monospace',
+                      fontFamily: 'var(--font-mono)',
                       color: 'var(--muted)',
                       backgroundColor: 'var(--surface-2)',
-                      padding: '3px 8px',
-                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
                       border: '1px solid var(--line)',
                       display: 'inline-block',
-                      marginBottom: '8px',
+                      marginBottom: '12px',
                     }}
                   >
-                    TASK #{task.id}
+                    TASK #{String(task.id).padStart(4, '0')}
                   </span>
-                  <h1 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.025em', color: 'var(--fg)' }}>
+                  <h1 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--fg)', lineHeight: 1.2 }}>
                     {task.title}
                   </h1>
                 </div>
@@ -206,11 +275,13 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       ? 'antares-badge-lime'
                       : task.status === 'approved'
                       ? 'antares-badge-up'
+                      : task.status === 'rejected'
+                      ? 'antares-badge-down'
                       : 'antares-badge-surface'
                   }`}
-                  style={{ textTransform: 'capitalize', fontSize: '12px', padding: '4px 12px' }}
+                  style={{ textTransform: 'capitalize', fontSize: '13px', padding: '6px 14px' }}
                 >
-                  {task.status}
+                  {task.status === 'submitted' ? 'Reviewing' : task.status}
                 </span>
               </div>
 
@@ -219,47 +290,47 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
-                  gap: '16px',
-                  marginTop: '16px',
-                  padding: '12px 16px',
+                  gap: '20px',
+                  marginTop: '24px',
+                  padding: '16px 20px',
                   backgroundColor: 'var(--surface-2)',
-                  borderRadius: '12px',
+                  borderRadius: '16px',
                   border: '1px solid var(--line)',
-                  fontSize: '13px',
+                  fontSize: '14px',
                 }}
               >
                 <div>
-                  <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block' }}>POSTED BY</span>
+                  <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '2px' }}>POSTED BY</span>
                   <span style={{ fontWeight: 600, color: 'var(--fg)' }}>User #{task.poster_id}</span>
                 </div>
 
                 {task.worker_id && (
-                  <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: '16px' }}>
-                    <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block' }}>ASSIGNED WORKER</span>
+                  <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: '20px' }}>
+                    <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '2px' }}>ASSIGNED WORKER</span>
                     <span style={{ fontWeight: 600, color: 'var(--fg)' }}>User #{task.worker_id}</span>
                   </div>
                 )}
 
-                <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: '16px' }}>
-                  <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block' }}>ESCROW SECURITY</span>
+                <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: '20px' }}>
+                  <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '2px' }}>ESCROW SECURITY</span>
                   <span style={{ fontWeight: 600, color: 'var(--accent)' }}>Arc Contract ✓</span>
                 </div>
               </div>
 
               {/* Description Body */}
-              <div style={{ marginTop: '24px' }}>
-                <div className="text-label-micro" style={{ marginBottom: '8px' }}>
+              <div style={{ marginTop: '32px' }}>
+                <div className="text-label-micro" style={{ marginBottom: '12px' }}>
                   Deliverables &amp; Description
                 </div>
                 <div
                   style={{
-                    fontSize: '14px',
-                    lineHeight: 1.6,
+                    fontSize: '15px',
+                    lineHeight: 1.7,
                     color: 'var(--fg)',
                     whiteSpace: 'pre-wrap',
-                    padding: '16px',
+                    padding: '24px',
                     backgroundColor: 'var(--surface-2)',
-                    borderRadius: '12px',
+                    borderRadius: '16px',
                     border: '1px solid var(--line)',
                   }}
                 >
@@ -270,19 +341,20 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
               {/* Submitted Work Proof Section */}
               {task.proof && (
                 <div
+                  className="animate-rise"
                   style={{
-                    marginTop: '20px',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    marginTop: '24px',
+                    padding: '20px',
+                    borderRadius: '16px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#3080ff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#3b82f6', letterSpacing: '0.05em' }}>
                       SUBMITTED PROOF (GITHUB / PR)
                     </span>
-                    <span className="antares-badge" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3080ff' }}>
+                    <span className="antares-badge" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}>
                       Ready for Review
                     </span>
                   </div>
@@ -292,9 +364,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                     rel="noopener noreferrer"
                     style={{
                       color: 'var(--fg)',
-                      fontSize: '13px',
+                      fontSize: '14px',
                       textDecoration: 'underline',
                       wordBreak: 'break-all',
+                      fontWeight: 500,
                     }}
                   >
                     {task.proof} ↗
@@ -305,39 +378,44 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
               {/* Escrow Released Notice */}
               {task.tx_hash && (
                 <div
+                  className="animate-rise"
                   style={{
-                    marginTop: '20px',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    backgroundColor: 'rgba(22, 163, 74, 0.08)',
-                    border: '1px solid rgba(22, 163, 74, 0.25)',
+                    marginTop: '24px',
+                    padding: '20px',
+                    borderRadius: '16px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
                   }}
                 >
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--up)', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--up)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     ESCROW FUNDS RELEASED ON-CHAIN
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--muted)', fontFamily: 'var(--font-geist-mono), monospace' }}>
-                    Tx: {task.tx_hash}
+                  <p style={{ fontSize: '13px', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
+                    Tx Hash: {task.tx_hash}
                   </p>
                 </div>
               )}
             </div>
 
             {/* Right Column: Escrow & Action Card */}
-            <div className="antares-card" style={{ padding: '24px' }}>
+            <div className="antares-card animate-rise glass-thick" style={{ padding: '32px', animationDelay: '0.2s', position: 'sticky', top: '90px' }}>
               <div className="text-label-micro">Escrow Settlement</div>
               <div
                 style={{
-                  fontSize: '28px',
+                  fontSize: '36px',
                   fontWeight: 800,
-                  fontFamily: 'var(--font-geist-mono), monospace',
+                  fontFamily: 'var(--font-mono)',
                   color: 'var(--fg)',
-                  marginTop: '4px',
-                  marginBottom: '16px',
+                  marginTop: '8px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: '8px'
                 }}
               >
-                ${task.bounty_usdc}{' '}
-                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent)' }}>USDC</span>
+                ${task.bounty_usdc}
+                <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent)' }}>USDC</span>
               </div>
 
               {/* Escrow Breakdown Table */}
@@ -345,52 +423,52 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '10px',
-                  fontSize: '13px',
+                  gap: '14px',
+                  fontSize: '14px',
                   borderTop: '1px solid var(--line)',
-                  paddingTop: '14px',
+                  paddingTop: '20px',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <dt style={{ color: 'var(--muted)' }}>Escrow Bounty</dt>
-                  <dd style={{ fontWeight: 600, fontFamily: 'var(--font-geist-mono), monospace' }}>
+                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>Escrow Bounty</dt>
+                  <dd style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                     ${task.bounty_usdc} USDC
                   </dd>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <dt style={{ color: 'var(--muted)' }}>Protocol Fee</dt>
+                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>Protocol Fee</dt>
                   <dd style={{ color: 'var(--accent)', fontWeight: 600 }}>0.0% (Free)</dd>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <dt style={{ color: 'var(--muted)' }}>Network Fee</dt>
-                  <dd style={{ color: 'var(--muted)', fontSize: '12px' }}>Paid by caller</dd>
+                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>Network Fee</dt>
+                  <dd style={{ color: 'var(--muted)', fontSize: '13px' }}>Paid by caller</dd>
                 </div>
                 <div
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    borderTop: '1px solid var(--line)',
-                    paddingTop: '12px',
+                    borderTop: '1px dashed var(--line)',
+                    paddingTop: '16px',
                     fontWeight: 700,
                   }}
                 >
                   <dt style={{ color: 'var(--fg)' }}>Total Payout</dt>
-                  <dd style={{ color: 'var(--accent)', fontFamily: 'var(--font-geist-mono), monospace', fontSize: '15px' }}>
+                  <dd style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '16px' }}>
                     ${task.bounty_usdc} USDC
                   </dd>
                 </div>
               </dl>
 
               {/* Actions Area */}
-              <div style={{ marginTop: '24px', borderTop: '1px solid var(--line)', paddingTop: '20px' }}>
+              <div style={{ marginTop: '32px', borderTop: '1px solid var(--line)', paddingTop: '24px' }}>
                 {!account && (
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
+                    <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: '16px', lineHeight: 1.5 }}>
                       Connect your wallet to claim this task or interact with escrow.
                     </p>
                     <button
                       className="antares-btn-accent"
-                      style={{ width: '100%', height: '44px' }}
+                      style={{ width: '100%', height: '52px', fontSize: '15px' }}
                       onClick={connectWallet}
                     >
                       Connect Wallet
@@ -401,7 +479,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 {account && task.status === 'open' && !isPoster && (
                   <button
                     className="antares-btn-accent"
-                    style={{ width: '100%', height: '44px' }}
+                    style={{ width: '100%', height: '52px', fontSize: '15px' }}
                     onClick={handleClaim}
                     disabled={isSubmitting}
                   >
@@ -410,41 +488,53 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 )}
 
                 {account && task.status === 'claimed' && isWorker && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)' }}>
-                      Submit Pull Request / Proof Link
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://github.com/user/repo/pull/1"
-                      value={proof}
-                      onChange={(e) => setProof(e.target.value)}
-                      className="antares-input"
-                    />
+                  <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--fg)', marginBottom: '8px' }}>
+                        Submit Pull Request / Proof Link
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://github.com/user/repo/pull/1"
+                        value={proof}
+                        onChange={(e) => setProof(e.target.value)}
+                        className="antares-input glass"
+                      />
+                    </div>
                     <button
                       className="antares-btn-accent"
-                      style={{ width: '100%', height: '44px' }}
+                      style={{ width: '100%', height: '52px', fontSize: '15px' }}
                       onClick={handleSubmitWork}
                       disabled={isSubmitting || !proof}
                     >
-                      {isSubmitting ? 'Submitting…' : 'Submit Proof for Approval'}
+                      {isSubmitting ? (
+                        <>
+                          <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: 'var(--accent-fg)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: '8px' }} />
+                          Submitting…
+                        </>
+                      ) : 'Submit Proof for Approval'}
                     </button>
                   </div>
                 )}
 
                 {account && task.status === 'submitted' && isPoster && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <button
                       className="antares-btn-accent"
-                      style={{ width: '100%', height: '44px' }}
-                      onClick={handleApprove}
+                      style={{ width: '100%', height: '52px', fontSize: '15px' }}
+                      onClick={handleApproveAndEscrow}
                       disabled={isSubmitting}
                     >
-                      {isSubmitting ? 'Releasing Escrow…' : 'Approve & Release USDC'}
+                      {isSubmitting ? (
+                        <>
+                          <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: 'var(--accent-fg)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: '8px' }} />
+                          {txStatus || 'Processing…'}
+                        </>
+                      ) : 'Approve & Release USDC'}
                     </button>
                     <button
                       className="antares-btn-surface"
-                      style={{ width: '100%', height: '40px', color: 'var(--down)' }}
+                      style={{ width: '100%', height: '44px', color: 'var(--down)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
                       onClick={handleReject}
                       disabled={isSubmitting}
                     >
@@ -454,8 +544,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 )}
 
                 {account && isPoster && (task.status === 'open' || task.status === 'rejected') && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--muted)', padding: '4px' }}>
+                  <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--muted)', padding: '8px', lineHeight: 1.5 }}>
                       {task.status === 'open'
                         ? 'You posted this task. Awaiting a worker to claim it.'
                         : 'Task was rejected and is open for modification or removal.'}
@@ -464,34 +554,41 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       className="antares-btn-surface"
                       style={{
                         width: '100%',
-                        height: '38px',
+                        height: '44px',
                         color: 'var(--down)',
-                        borderColor: 'rgba(248, 113, 113, 0.3)',
-                        fontSize: '13px',
+                        borderColor: 'rgba(239, 68, 68, 0.2)',
+                        fontSize: '14px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '6px'
+                        gap: '8px'
                       }}
                       onClick={handleDelete}
                       disabled={isSubmitting}
                     >
-                      {isSubmitting ? 'Deleting…' : '🗑 Delete Task'}
+                      {isSubmitting ? 'Deleting…' : (
+                        <>
+                          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                          Delete Task
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
 
                 {task.status === 'approved' && (
                   <div
+                    className="animate-rise"
                     style={{
                       textAlign: 'center',
-                      fontSize: '13px',
-                      fontWeight: 600,
+                      fontSize: '14px',
+                      fontWeight: 700,
                       color: 'var(--up)',
-                      padding: '10px',
-                      backgroundColor: 'rgba(22, 163, 74, 0.08)',
-                      borderRadius: '10px',
+                      padding: '16px',
+                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      borderRadius: '12px',
                     }}
                   >
                     ✓ Bounty paid in full via USDC Escrow
@@ -499,8 +596,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 )}
               </div>
 
-              <div style={{ marginTop: '20px', borderTop: '1px solid var(--line)', paddingTop: '16px', fontSize: '11px', color: 'var(--muted)', textAlign: 'center' }}>
-                Verified on Arc Testnet · Contract: 0x3A2A…503B
+              <div style={{ marginTop: '24px', borderTop: '1px solid var(--line)', paddingTop: '20px', fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>
+                Verified on Arc Testnet · Contract: {TASK_ESCROW_ADDRESS.slice(0,6)}…{TASK_ESCROW_ADDRESS.slice(-4)}
               </div>
             </div>
           </div>

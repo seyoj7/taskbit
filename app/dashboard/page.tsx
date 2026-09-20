@@ -72,183 +72,51 @@ export default function Dashboard() {
     <>
       <Navbar onOpenPostTask={() => setIsPostModalOpen(true)} />
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '32px 16px', flex: 1 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      <main style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '40px 16px', flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           
-          {/* Antares Marketplace Hero Banner Card */}
-          <section className="antares-card">
-            {/* Banner Artwork Area */}
+          {/* Antares Metrics Stat Bar */}
+          <section className="antares-card animate-rise">
             <div
               style={{
-                height: '180px',
-                position: 'relative',
-                background: 'linear-gradient(135deg, #12160a 0%, #1a220b 40%, #293803 80%, #cef910 100%)',
-                overflow: 'hidden',
-              }}
-            >
-              {/* Subtle mesh pattern */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(206, 249, 16, 0.4) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(109, 91, 208, 0.3) 0%, transparent 40%)',
-                  opacity: 0.85,
-                }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 60%)',
-                }}
-              />
-            </div>
-
-            {/* Banner Header Info & Avatar */}
-            <div
-              style={{
-                position: 'relative',
-                padding: '0 24px 20px 24px',
-                marginTop: '-44px',
-              }}
-            >
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px' }}>
-                
-                {/* Left: Avatar & Title */}
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px' }}>
-                  <div
-                    style={{
-                      width: '88px',
-                      height: '88px',
-                      borderRadius: '20px',
-                      border: '4px solid var(--surface)',
-                      backgroundColor: 'var(--surface)',
-                      boxShadow: '0 10px 24px rgba(0,0,0,0.3)',
-                      display: 'grid',
-                      placeItems: 'center',
-                      background: 'linear-gradient(135deg, var(--accent), var(--accent-soft))',
-                      color: 'var(--accent-fg)',
-                      fontSize: '36px',
-                      fontWeight: 800,
-                      flexShrink: 0,
-                    }}
-                  >
-                    ✦
-                  </div>
-
-                  <div style={{ marginBottom: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <h1 style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--fg)' }}>
-                        Taskbit Marketplace
-                      </h1>
-                      <span
-                        title="Verified Contract"
-                        style={{
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '50%',
-                          backgroundColor: '#3080ff',
-                          color: 'white',
-                          display: 'grid',
-                          placeItems: 'center',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                        }}
-                      >
-                        ✓
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                      <span className="antares-badge antares-badge-surface">
-                        Arc Network
-                      </span>
-                      <span className="antares-badge antares-badge-lime">
-                        USDC Escrow
-                      </span>
-                      <button
-                        onClick={copyContract}
-                        style={{
-                          fontSize: '11px',
-                          fontFamily: 'var(--font-geist-mono), monospace',
-                          color: 'var(--muted)',
-                          backgroundColor: 'var(--surface-2)',
-                          padding: '2px 8px',
-                          borderRadius: '9999px',
-                          border: '1px solid var(--line)',
-                          cursor: 'pointer',
-                        }}
-                        title="Copy contract address"
-                      >
-                        {copied ? 'Copied ✓' : '0x3A2A…503B 📋'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: Quick Action Buttons */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <button
-                    className="antares-btn-accent"
-                    onClick={() => setIsPostModalOpen(true)}
-                  >
-                    <span style={{ fontSize: '15px' }}>+</span>
-                    <span>Post a Task</span>
-                  </button>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Antares Metrics Stat Bar */}
-            <div
-              style={{
-                borderTop: '1px solid var(--line)',
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                backgroundColor: 'var(--surface)',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                backgroundColor: 'var(--surface-2)',
               }}
             >
-              <div style={{ padding: '12px 18px', borderRight: '1px solid var(--line)' }}>
+              <div style={{ padding: '16px 24px', borderRight: '1px solid var(--line)' }}>
                 <div className="text-label-micro">Total Escrow</div>
-                <div style={{ marginTop: '3px', fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-geist-mono), monospace' }}>
-                  ${totalBounties.toLocaleString()} <span style={{ fontSize: '11px', color: 'var(--muted)' }}>USDC</span>
+                <div style={{ marginTop: '6px', fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  ${totalBounties.toLocaleString()} <span style={{ fontSize: '12px', color: 'var(--muted)' }}>USDC</span>
                 </div>
               </div>
 
-              <div style={{ padding: '12px 18px', borderRight: '1px solid var(--line)' }}>
+              <div style={{ padding: '16px 24px', borderRight: '1px solid var(--line)' }}>
                 <div className="text-label-micro">Active Tasks</div>
-                <div style={{ marginTop: '3px', fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-geist-mono), monospace' }}>
+                <div style={{ marginTop: '6px', fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                   {tasks.length}
                 </div>
               </div>
 
-              <div style={{ padding: '12px 18px', borderRight: '1px solid var(--line)' }}>
+              <div style={{ padding: '16px 24px', borderRight: '1px solid var(--line)' }}>
                 <div className="text-label-micro">Open Bounties</div>
-                <div style={{ marginTop: '3px', fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-geist-mono), monospace', color: 'var(--accent)' }}>
+                <div style={{ marginTop: '6px', fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
                   {openTasksCount}
                 </div>
               </div>
 
-              <div style={{ padding: '12px 18px', borderRight: '1px solid var(--line)' }}>
-                <div className="text-label-micro">24H Activity</div>
-                <div style={{ marginTop: '3px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span className="antares-badge antares-badge-up" style={{ padding: '1px 6px' }}>
+              <div style={{ padding: '16px 24px', borderRight: '1px solid var(--line)' }}>
+                <div className="text-label-micro">24H Volume</div>
+                <div style={{ marginTop: '6px', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="antares-badge antares-badge-up" style={{ padding: '2px 8px' }}>
                     +14.2% ↑
                   </span>
                 </div>
               </div>
 
-              <div style={{ padding: '12px 18px', borderRight: '1px solid var(--line)' }}>
-                <div className="text-label-micro">Verification</div>
-                <div style={{ marginTop: '3px', fontSize: '14px', fontWeight: 600 }}>
-                  GitHub API
-                </div>
-              </div>
-
-              <div style={{ padding: '12px 18px' }}>
+              <div style={{ padding: '16px 24px' }}>
                 <div className="text-label-micro">Settlement</div>
-                <div style={{ marginTop: '3px', fontSize: '14px', fontWeight: 600, color: 'var(--muted)' }}>
+                <div style={{ marginTop: '6px', fontSize: '16px', fontWeight: 600, color: 'var(--muted)' }}>
                   Instant USDC
                 </div>
               </div>
@@ -257,12 +125,14 @@ export default function Dashboard() {
 
           {/* Search, Filter Tabs, and Controls */}
           <div
+            className="animate-rise"
             style={{
               display: 'flex',
               flexWrap: 'wrap',
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '16px',
+              animationDelay: '0.1s',
             }}
           >
             {/* Status Tabs (Segmented Pill Controller) */}
@@ -279,18 +149,19 @@ export default function Dashboard() {
             </div>
 
             {/* Search Input */}
-            <div style={{ position: 'relative', width: '280px', maxWidth: '100%' }}>
+            <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
               <input
                 type="text"
                 placeholder="Search tasks, keywords…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="antares-input"
+                className="antares-input glass"
                 style={{
-                  height: '38px',
-                  padding: '0 14px 0 36px',
-                  fontSize: '13px',
+                  height: '44px',
+                  padding: '0 16px 0 42px',
+                  fontSize: '14px',
                   borderRadius: '9999px',
+                  background: 'var(--surface-2)',
                 }}
               />
               <svg
@@ -300,11 +171,11 @@ export default function Dashboard() {
                 strokeWidth="2"
                 style={{
                   position: 'absolute',
-                  left: '12px',
+                  left: '16px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  width: '14px',
-                  height: '14px',
+                  width: '16px',
+                  height: '16px',
                   color: 'var(--muted)',
                 }}
               >
@@ -316,49 +187,57 @@ export default function Dashboard() {
 
           {/* Loading, Error, or Task Grid */}
           {loading && (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)', fontSize: '14px' }}>
+            <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--muted)', fontSize: '15px' }}>
               <div
                 style={{
-                  width: '24px',
-                  height: '24px',
+                  width: '32px',
+                  height: '32px',
                   borderRadius: '50%',
-                  border: '2px solid var(--accent)',
+                  border: '3px solid var(--accent)',
                   borderTopColor: 'transparent',
                   animation: 'spin 0.8s linear infinite',
-                  margin: '0 auto 12px auto',
+                  margin: '0 auto 16px auto',
                 }}
               />
-              Syncing tasks from blockchain &amp; database…
+              Syncing marketplace data…
             </div>
           )}
 
           {error && (
             <div
-              className="antares-card"
+              className="antares-card animate-rise"
               style={{
-                padding: '24px',
+                padding: '32px',
                 textAlign: 'center',
                 color: 'var(--down)',
-                backgroundColor: 'rgba(220, 38, 38, 0.08)',
+                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
               }}
             >
-              {error}
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 12px' }}>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <div style={{ fontWeight: 600 }}>{error}</div>
             </div>
           )}
 
           {!loading && !error && filteredTasks.length === 0 && (
             <div
-              className="antares-card"
+              className="antares-card glass animate-rise"
               style={{
-                padding: '64px 20px',
+                padding: '80px 24px',
                 textAlign: 'center',
+                background: 'var(--surface-2)',
+                borderStyle: 'dashed',
               }}
             >
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>✦</div>
-              <h3 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '6px' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px', filter: 'grayscale(1)', opacity: 0.5 }}>✧</div>
+              <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '8px', color: 'var(--fg)' }}>
                 No tasks found
               </h3>
-              <p style={{ fontSize: '13px', color: 'var(--muted)', maxWidth: '340px', margin: '0 auto 20px auto' }}>
+              <p style={{ fontSize: '15px', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto 24px auto', lineHeight: 1.5 }}>
                 {searchQuery ? 'Try adjusting your search keywords or filter.' : 'Be the first to post a task and fund it with USDC escrow!'}
               </p>
               <button
@@ -372,10 +251,12 @@ export default function Dashboard() {
 
           {!loading && !error && filteredTasks.length > 0 && (
             <div
+              className="animate-rise"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '20px',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: '24px',
+                animationDelay: '0.2s',
               }}
             >
               {filteredTasks.map((task) => (

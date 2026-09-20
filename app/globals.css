@@ -1,47 +1,78 @@
 :root {
-  --bg: #f2f3f5;
+  --bg: #f8f9fa;
   --surface: #ffffff;
-  --surface-2: #f7f8f9;
-  --fg: #0d0e11;
-  --muted: #71757e;
-  --line: #e6e8eb;
-  --accent: #cef910; /* Antares electric lime */
-  --accent-soft: #f7ffcc;
-  --accent-fg: #12160a;
-  --up: #16a34a;
-  --down: #dc2626;
-  --chart-1: #5c7a00;
-  --chart-2: #6d5bd0;
+  --surface-2: #f1f3f5;
+  --surface-3: #e9ecef;
+  --fg: #111827;
+  --muted: #6b7280;
+  --line: #e5e7eb;
   
-  --glass-tint: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.68) 55%, rgba(255, 255, 255, 0.78) 100%);
-  --glass-stroke: rgba(255, 255, 255, 0.85);
-  --glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 1px rgba(255, 255, 255, 0.45);
-  --glass-drop: 0 6px 18px rgba(15, 18, 25, 0.14), 0 1px 2px rgba(15, 18, 25, 0.08);
+  /* Taskbit Signature Neon Green/Lime */
+  --accent: #d9f91d;
+  --accent-soft: #f7fee7;
+  --accent-fg: #1a2e05;
+  --accent-glow: rgba(217, 249, 29, 0.4);
+  
+  --up: #10b981;
+  --down: #ef4444;
+  
+  --glass-tint: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.75) 55%, rgba(255, 255, 255, 0.85) 100%);
+  --glass-stroke: rgba(255, 255, 255, 0.9);
+  --glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 1px rgba(255, 255, 255, 0.5);
+  --glass-drop: 0 8px 32px rgba(17, 24, 39, 0.08), 0 2px 4px rgba(17, 24, 39, 0.04);
   
   --spring: cubic-bezier(.34, 1.56, .64, 1);
-  --font-geist-sans: var(--font-geist-sans);
-  --font-geist-mono: var(--font-geist-mono);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
 html.dark, :root.dark, body.dark {
-  --bg: #0a0b0d;
-  --surface: #131417;
-  --surface-2: #1a1c20;
-  --fg: #f3f4f6;
-  --muted: #9096a1;
-  --line: #26282d;
-  --accent: #cef910;
-  --accent-soft: #232b00;
-  --accent-fg: #12160a;
-  --up: #4ade80;
-  --down: #f87171;
-  --chart-1: #7fa000;
-  --chart-2: #7d6ae0;
+  --bg: #09090b;
+  --surface: #121214;
+  --surface-2: #18181b;
+  --surface-3: #27272a;
+  --fg: #fafafa;
+  --muted: #a1a1aa;
+  --line: #27272a;
   
-  --glass-tint: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.07) 55%, rgba(255, 255, 255, 0.11) 100%);
-  --glass-stroke: rgba(255, 255, 255, 0.18);
-  --glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 1px rgba(255, 255, 255, 0.08);
-  --glass-drop: 0 10px 28px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.38);
+  --accent: #d9f91d;
+  --accent-soft: #232d0c;
+  --accent-fg: #131d04;
+  --accent-glow: rgba(217, 249, 29, 0.15);
+  
+  --up: #34d399;
+  --down: #f87171;
+  
+  --glass-tint: linear-gradient(180deg, rgba(24, 24, 27, 0.7) 0%, rgba(24, 24, 27, 0.4) 55%, rgba(24, 24, 27, 0.6) 100%);
+  --glass-stroke: rgba(255, 255, 255, 0.12);
+  --glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+  --glass-drop: 0 12px 48px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #09090b;
+    --surface: #121214;
+    --surface-2: #18181b;
+    --surface-3: #27272a;
+    --fg: #fafafa;
+    --muted: #a1a1aa;
+    --line: #27272a;
+    
+    --accent: #d9f91d;
+    --accent-soft: #232d0c;
+    --accent-fg: #131d04;
+    --accent-glow: rgba(217, 249, 29, 0.15);
+    
+    --up: #34d399;
+    --down: #f87171;
+    
+    --glass-tint: linear-gradient(180deg, rgba(24, 24, 27, 0.7) 0%, rgba(24, 24, 27, 0.4) 55%, rgba(24, 24, 27, 0.6) 100%);
+    --glass-stroke: rgba(255, 255, 255, 0.12);
+    --glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+    --glass-drop: 0 12px 48px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
 }
 
 * {
@@ -57,10 +88,10 @@ html, body {
   overflow-x: hidden;
   background-color: var(--bg);
   color: var(--fg);
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 body {
@@ -71,6 +102,7 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 button {
@@ -80,70 +112,90 @@ button {
   font-family: inherit;
 }
 
-/* Antares Glassmorphism */
+/* Premium Glassmorphism */
 .glass {
   background: var(--glass-tint);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid var(--glass-stroke);
   box-shadow: var(--glass-specular), var(--glass-drop);
 }
 
-.glass-thick {
-  background: var(--glass-tint);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid var(--glass-stroke);
-  box-shadow: var(--glass-specular), var(--glass-drop);
-}
-
-/* Antares Cards */
+/* Cards */
 .antares-card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
-  transition: border-color 0.2s ease, transform 0.2s var(--spring), box-shadow 0.2s ease;
+  position: relative;
+  transition: border-color 0.3s ease, transform 0.4s var(--spring), box-shadow 0.4s ease;
+}
+
+.antares-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  z-index: 10;
+  pointer-events: none;
 }
 
 .antares-card-interactive:hover {
   border-color: var(--muted);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.25);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--accent-glow);
 }
 
-/* Antares Buttons */
+/* Buttons */
 .antares-btn-accent {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 18px;
-  border-radius: 9999px;
-  font-size: 13px;
+  height: 44px;
+  padding: 0 24px;
+  border-radius: 12px;
+  font-size: 14px;
   font-weight: 600;
   background: var(--accent);
   color: var(--accent-fg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 4px 12px var(--accent-glow);
   border: none;
   cursor: pointer;
-  transition: filter 0.2s ease, transform 0.2s var(--spring), opacity 0.2s ease;
+  transition: all 0.3s var(--ease-out-expo);
   text-decoration: none;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.antares-btn-accent::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  transform: skewX(-20deg);
+  transition: 0.5s;
 }
 
 .antares-btn-accent:hover:not(:disabled) {
-  filter: brightness(0.95);
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 8px 24px var(--accent-glow);
+}
+
+.antares-btn-accent:hover:not(:disabled)::after {
+  left: 150%;
 }
 
 .antares-btn-accent:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: translateY(1px);
 }
 
 .antares-btn-accent:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
+  filter: grayscale(1);
 }
 
 .antares-btn-surface {
@@ -151,111 +203,111 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 9999px;
-  font-size: 13px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: 14px;
   font-weight: 600;
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--fg);
   border: 1px solid var(--line);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s var(--spring);
+  transition: all 0.3s var(--ease-out-expo);
   text-decoration: none;
   white-space: nowrap;
 }
 
 .antares-btn-surface:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--surface-3);
   border-color: var(--muted);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
 }
 
 .antares-btn-surface:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: translateY(1px);
 }
 
 .antares-icon-btn {
   display: grid;
   place-items: center;
-  height: 36px;
-  width: 36px;
-  border-radius: 9999px;
+  height: 40px;
+  width: 40px;
+  border-radius: 12px;
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--muted);
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   cursor: pointer;
 }
 
 .antares-icon-btn:hover {
-  background: var(--surface-2);
+  background: var(--surface-3);
   color: var(--fg);
   border-color: var(--muted);
+  transform: rotate(5deg) scale(1.05);
 }
 
-/* Antares Segmented Pill Navigation */
+/* Nav Pills */
 .antares-nav-pill-container {
   display: inline-flex;
   align-items: center;
-  border-radius: 9999px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--surface-2);
   padding: 4px;
   gap: 4px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .antares-nav-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 9999px;
-  font-size: 12px;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
-  transition: all 0.2s ease;
+  transition: all 0.3s var(--spring);
   text-decoration: none;
   white-space: nowrap;
 }
 
-@media (min-width: 768px) {
-  .antares-nav-pill {
-    padding: 6px 16px;
-    font-size: 13px;
-  }
-}
-
 .antares-nav-pill:hover {
   color: var(--fg);
+  background: rgba(255,255,255,0.05);
 }
 
 .antares-nav-pill.active {
   background: var(--surface);
   color: var(--fg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255,255,255,0.1);
+  border: 1px solid var(--line);
 }
 
-/* Antares Badges */
+/* Badges */
 .antares-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
+  gap: 6px;
+  padding: 4px 12px;
   border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
+  transition: transform 0.2s ease;
+}
+.antares-badge:hover {
+  transform: translateY(-1px);
 }
 
 .antares-badge-lime {
-  background: var(--accent-soft);
-  color: var(--accent-fg);
-}
-
-.dark .antares-badge-lime {
-  background: rgba(206, 249, 16, 0.15);
+  background: var(--accent-glow);
   color: var(--accent);
-  border: 1px solid rgba(206, 249, 16, 0.3);
+  border: 1px solid rgba(217, 249, 29, 0.3);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .antares-badge-surface {
@@ -265,40 +317,57 @@ button {
 }
 
 .antares-badge-up {
-  background: rgba(22, 163, 74, 0.12);
+  background: rgba(16, 185, 129, 0.15);
   color: var(--up);
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .antares-badge-down {
-  background: rgba(220, 38, 38, 0.12);
+  background: rgba(239, 68, 68, 0.15);
   color: var(--down);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-/* Antares Typography Helpers */
+/* Typography */
 .text-label-micro {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--muted);
 }
 
-/* Antares Inputs */
+.text-gradient {
+  background: linear-gradient(135deg, var(--fg) 0%, var(--muted) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-lime {
+  background: linear-gradient(135deg, var(--accent) 0%, #fff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Inputs */
 .antares-input {
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 12px;
   color: var(--fg);
   font-size: 14px;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
 }
 
 .antares-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(206, 249, 16, 0.25);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-glow), inset 0 2px 4px rgba(0,0,0,0.02);
 }
 
 .antares-input::placeholder {
@@ -318,35 +387,41 @@ button {
   background: var(--line);
   border-radius: 99px;
 }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
 
 /* Animations */
 @keyframes rise {
-  0% {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0% { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .animate-rise {
-  animation: 0.35s var(--spring) both rise;
+  animation: 0.5s var(--spring) both rise;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgba(206, 249, 16, 0.55);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(206, 249, 16, 0);
-  }
-  to {
-    box-shadow: 0 0 0 0 rgba(206, 249, 16, 0);
-  }
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  70% { box-shadow: 0 0 0 12px rgba(217, 249, 29, 0); }
+  to { box-shadow: 0 0 0 0 rgba(217, 249, 29, 0); }
 }
 
 .pulse-ring {
   animation: 2s ease-out infinite pulse-ring;
+}
+
+/* Hover reveal */
+.hover-reveal {
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.3s ease;
+}
+*:hover > .hover-reveal {
+  opacity: 1;
+  transform: translateY(0);
 }

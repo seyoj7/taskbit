@@ -20,29 +20,29 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
     const s = String(status).toLowerCase();
     if (s === 'open') {
       return (
-        <span className="antares-badge antares-badge-lime">
-          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor' }} />
+        <span className="antares-badge antares-badge-lime" style={{ padding: '4px 10px' }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', boxShadow: '0 0 6px currentColor' }} />
           Open
         </span>
       );
     }
     if (s === 'in progress' || s === 'claimed' || s === 'submitted') {
       return (
-        <span className="antares-badge" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor' }} />
+        <span className="antares-badge" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '4px 10px' }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor' }} />
           {s === 'submitted' ? 'Reviewing' : 'In Progress'}
         </span>
       );
     }
     if (s === 'completed' || s === 'approved') {
       return (
-        <span className="antares-badge antares-badge-up">
+        <span className="antares-badge antares-badge-up" style={{ padding: '4px 10px' }}>
           ✓ Paid
         </span>
       );
     }
     return (
-      <span className="antares-badge antares-badge-surface">
+      <span className="antares-badge antares-badge-surface" style={{ padding: '4px 10px' }}>
         {status}
       </span>
     );
@@ -61,28 +61,29 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
       {/* Visual Thumbnail Area */}
       <div
         style={{
-          height: '140px',
+          height: '150px',
           backgroundColor: 'var(--surface-2)',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          padding: '12px',
+          padding: '16px',
           borderBottom: '1px solid var(--line)',
-          backgroundImage: 'radial-gradient(circle at 80% 20%, rgba(206, 249, 16, 0.08) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(109, 91, 208, 0.06) 0%, transparent 50%)',
+          backgroundImage: 'radial-gradient(circle at 80% 20%, rgba(217, 249, 29, 0.08) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(109, 91, 208, 0.06) 0%, transparent 50%)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span
             style={{
-              fontSize: '11px',
+              fontSize: '12px',
               fontWeight: 700,
-              fontFamily: 'var(--font-geist-mono), monospace',
+              fontFamily: 'var(--font-mono)',
               color: 'var(--muted)',
               backgroundColor: 'var(--surface)',
               border: '1px solid var(--line)',
-              padding: '3px 8px',
-              borderRadius: '6px',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
             }}
           >
             {formattedId}
@@ -90,16 +91,15 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
           {renderStatusBadge()}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
+            className="glass"
             style={{
               fontSize: '11px',
               fontWeight: 600,
-              color: 'var(--muted)',
-              backgroundColor: 'var(--surface)',
-              padding: '2px 8px',
+              color: 'var(--fg)',
+              padding: '4px 12px',
               borderRadius: '9999px',
-              border: '1px solid var(--line)',
             }}
           >
             Arc Escrow
@@ -108,15 +108,15 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
       </div>
 
       {/* Content Area */}
-      <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <h3
           style={{
-            fontSize: '15px',
+            fontSize: '17px',
             fontWeight: 700,
-            lineHeight: 1.3,
+            lineHeight: 1.4,
             color: 'var(--fg)',
             display: '-webkit-box',
-            WebkitLineClamp: 1,
+            WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}
@@ -126,7 +126,7 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
 
         <p
           style={{
-            fontSize: '13px',
+            fontSize: '14px',
             color: 'var(--muted)',
             lineHeight: 1.5,
             display: '-webkit-box',
@@ -143,25 +143,26 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
       <div
         style={{
           borderTop: '1px solid var(--line)',
-          padding: '12px 16px',
+          padding: '16px 20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           backgroundColor: 'var(--surface)',
+          transition: 'background-color 0.3s ease',
         }}
       >
         <div>
           <div className="text-label-micro">Bounty</div>
           <div
             style={{
-              fontSize: '15px',
+              fontSize: '18px',
               fontWeight: 700,
-              fontFamily: 'var(--font-geist-mono), monospace',
+              fontFamily: 'var(--font-mono)',
               color: 'var(--fg)',
-              marginTop: '2px',
+              marginTop: '4px',
             }}
           >
-            {bounty} <span style={{ fontSize: '11px', color: 'var(--muted)' }}>USDC</span>
+            {bounty} <span style={{ fontSize: '13px', color: 'var(--muted)' }}>USDC</span>
           </div>
         </div>
 
@@ -169,14 +170,15 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '4px',
-            fontSize: '12px',
+            gap: '6px',
+            fontSize: '13px',
             fontWeight: 600,
             color: 'var(--muted)',
+            transition: 'color 0.2s ease',
           }}
         >
           <span>View</span>
-          <span style={{ fontSize: '14px' }}>↗</span>
+          <span style={{ fontSize: '16px' }}>↗</span>
         </div>
       </div>
     </div>

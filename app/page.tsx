@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import PostTaskModal from './components/PostTaskModal';
@@ -34,208 +34,85 @@ export default function Home() {
     },
   ];
 
+  // Auto-rotate slides
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % SLIDES.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [SLIDES.length]);
+
   return (
     <>
       <Navbar onOpenPostTask={() => setIsPostModalOpen(true)} />
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '32px 16px', flex: 1 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      <main style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '48px 16px', flex: 1 }}>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
           
-          {/* Antares 2-Column Showcase Grid */}
           <section
             style={{
-              display: 'grid',
-              gap: '24px',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              alignItems: 'start',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '48px',
+              justifyContent: 'space-between',
+              alignItems: 'center',
             }}
           >
-            {/* Left Column: Collection / Showcase Card */}
-            <div className="antares-card">
-              {/* Visual Showcase Box */}
-              <div
-                style={{
-                  aspectRatio: '16/10',
-                  minHeight: '260px',
-                  position: 'relative',
-                  backgroundColor: 'var(--surface-2)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'flex-end',
-                  padding: '24px',
-                  overflow: 'hidden',
-                  background: 'linear-gradient(135deg, #090a0c 0%, #151d08 45%, #2a370b 80%, #cef910 130%)',
-                }}
-              >
-                {/* Visual Glow */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '-30%',
-                    right: '-20%',
-                    width: '300px',
-                    height: '300px',
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(206, 249, 16, 0.25) 0%, transparent 70%)',
-                    filter: 'blur(30px)',
-                  }}
-                />
-
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, transparent 60%)',
-                  }}
-                />
-
-                <div style={{ position: 'relative', zIndex: 2 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <span className="antares-badge antares-badge-lime">
-                      Arc Microgrants
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                        color: 'white',
-                        padding: '2px 8px',
-                        borderRadius: '9999px',
-                        backdropFilter: 'blur(8px)',
-                      }}
-                    >
-                      {SLIDES[activeSlide].badge}
-                    </span>
-                  </div>
-
-                  <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'white', letterSpacing: '-0.025em' }}>
-                    {SLIDES[activeSlide].title}
-                  </h1>
-
-                  <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.8)', marginTop: '4px', maxWidth: '440px', lineHeight: 1.45 }}>
-                    {SLIDES[activeSlide].desc}
-                  </p>
-                </div>
-              </div>
-
-              {/* Previews / Slides Switcher */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '12px 16px',
-                  borderTop: '1px solid var(--line)',
-                  backgroundColor: 'var(--surface)',
-                }}
-              >
-                {SLIDES.map((slide, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveSlide(idx)}
-                    style={{
-                      height: '44px',
-                      flex: 1,
-                      borderRadius: '8px',
-                      border: activeSlide === idx ? '2px solid var(--accent)' : '1px solid var(--line)',
-                      backgroundColor: 'var(--surface-2)',
-                      color: activeSlide === idx ? 'var(--fg)' : 'var(--muted)',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      padding: '0 8px',
-                      textAlign: 'center',
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {slide.title}
-                  </button>
-                ))}
-              </div>
-
-              {/* Stats Row */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  borderTop: '1px solid var(--line)',
-                  backgroundColor: 'var(--surface)',
-                }}
-              >
-                <div style={{ padding: '12px 16px', borderRight: '1px solid var(--line)' }}>
-                  <div className="text-label-micro">Escrow Asset</div>
-                  <div style={{ marginTop: '2px', fontSize: '14px', fontWeight: 700, color: 'var(--fg)' }}>USDC</div>
-                </div>
-                <div style={{ padding: '12px 16px', borderRight: '1px solid var(--line)' }}>
-                  <div className="text-label-micro">Network</div>
-                  <div style={{ marginTop: '2px', fontSize: '14px', fontWeight: 700, color: 'var(--fg)' }}>Arc EVM</div>
-                </div>
-                <div style={{ padding: '12px 16px' }}>
-                  <div className="text-label-micro">Protocol Fee</div>
-                  <div style={{ marginTop: '2px', fontSize: '14px', fontWeight: 700, color: 'var(--accent)' }}>0.0%</div>
-                </div>
-              </div>
-
-              <div style={{ padding: '12px 16px', borderTop: '1px solid var(--line)', fontSize: '12px', color: 'var(--muted)' }}>
-                Built natively for the <strong style={{ color: 'var(--fg)' }}>Arc Microgrants Program</strong> · TaskEscrow.sol
-              </div>
+            {/* Hero Headline */}
+            <div style={{ animation: 'rise 0.8s var(--spring)', flex: '1 1 400px' }}>
+              <h1 style={{ fontSize: 'clamp(40px, 5vw, 64px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.1, color: 'var(--fg)', marginBottom: '24px' }}>
+                The Web3 native <br/>
+                <span className="text-gradient-lime">Proof-of-Work</span> Marketplace
+              </h1>
+              <p style={{ fontSize: 'clamp(16px, 1.5vw, 20px)', color: 'var(--muted)', lineHeight: 1.6, maxWidth: '500px' }}>
+                Post verifiable tasks with a USDC bounty. Builders complete the work and get paid instantly via smart contract escrow.
+              </p>
             </div>
 
-            {/* Right Column: Interactive Quick-Action Panel (Antares Mint Style) */}
-            <div className="antares-card" style={{ padding: '24px' }}>
+            {/* Right Column: Interactive Quick-Action Panel */}
+            <div className="antares-card animate-rise" style={{ padding: '24px', animationDelay: '0.2s', width: '100%', flex: '1 1 320px', maxWidth: '440px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--fg)' }}>
-                  Taskbit Marketplace
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--fg)' }}>
+                  Taskbit App
                 </h2>
-                <span className="antares-badge antares-badge-lime">
-                  Active
-                </span>
+
               </div>
 
-              <p style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '6px', lineHeight: 1.5 }}>
-                Post small, verifiable tasks with a USDC bounty. Builders complete tasks and submit proof to release escrow.
+              <p style={{ fontSize: '14px', color: 'var(--muted)', marginTop: '8px', lineHeight: 1.6 }}>
+                Explore open bounties or create your own task to fund directly with USDC escrow.
               </p>
 
-              {/* Progress Stage Indicator */}
-              <div style={{ marginTop: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
-                  <span style={{ color: 'var(--fg)' }}>Marketplace Protocol Status</span>
-                  <span style={{ color: 'var(--accent)' }}>100% Verified</span>
-                </div>
-                <div style={{ height: '8px', borderRadius: '9999px', backgroundColor: 'var(--surface-2)', overflow: 'hidden' }}>
-                  <div style={{ width: '100%', height: '100%', backgroundColor: 'var(--accent)' }} />
-                </div>
-              </div>
+
 
               {/* Bounty Simulator Box */}
               <div
                 style={{
                   marginTop: '20px',
                   padding: '16px',
-                  borderRadius: '12px',
+                  borderRadius: '16px',
                   backgroundColor: 'var(--surface-2)',
                   border: '1px solid var(--line)',
+                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>Example Bounty Target</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '14px', color: 'var(--muted)', fontWeight: 600 }}>Example Bounty</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <button
                       onClick={() => setBountySim((prev) => Math.max(25, prev - 25))}
-                      className="antares-btn-surface"
-                      style={{ height: '32px', width: '32px', padding: 0, fontSize: '16px' }}
+                      className="antares-icon-btn"
+                      style={{ height: '36px', width: '36px', fontSize: '18px' }}
                     >
                       −
                     </button>
-                    <span style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'var(--font-geist-mono), monospace' }}>
+                    <span style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                       ${bountySim}
                     </span>
                     <button
                       onClick={() => setBountySim((prev) => prev + 25)}
-                      className="antares-btn-surface"
-                      style={{ height: '32px', width: '32px', padding: 0, fontSize: '16px' }}
+                      className="antares-icon-btn"
+                      style={{ height: '36px', width: '36px', fontSize: '18px' }}
                     >
                       +
                     </button>
@@ -244,27 +121,27 @@ export default function Home() {
               </div>
 
               {/* Calculation Summary Table */}
-              <dl style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+              <dl style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <dt style={{ color: 'var(--muted)' }}>Escrow Deposit</dt>
-                  <dd style={{ fontWeight: 600, fontFamily: 'var(--font-geist-mono), monospace' }}>${bountySim} USDC</dd>
+                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>Escrow Deposit</dt>
+                  <dd style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>${bountySim} USDC</dd>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <dt style={{ color: 'var(--muted)' }}>Network Fee</dt>
-                  <dd style={{ fontSize: '12px', color: 'var(--muted)' }}>Estimated by wallet (~$0.01)</dd>
+                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>Network Fee</dt>
+                  <dd style={{ fontSize: '13px', color: 'var(--muted)' }}>Estimated by wallet (~$0.01)</dd>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--line)', paddingTop: '10px', fontWeight: 700 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--line)', paddingTop: '8px', fontWeight: 700 }}>
                   <dt style={{ color: 'var(--fg)' }}>Settlement to Worker</dt>
-                  <dd style={{ color: 'var(--accent)', fontFamily: 'var(--font-geist-mono), monospace' }}>${bountySim} USDC</dd>
+                  <dd style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '16px' }}>${bountySim} USDC</dd>
                 </div>
               </dl>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
                 <Link
                   href="/dashboard"
                   className="antares-btn-accent"
-                  style={{ height: '44px', width: '100%', fontSize: '14px' }}
+                  style={{ height: '48px', width: '100%', fontSize: '15px' }}
                 >
                   Explore Task Marketplace ↗
                 </Link>
@@ -272,66 +149,80 @@ export default function Home() {
                 <button
                   onClick={() => setIsPostModalOpen(true)}
                   className="antares-btn-surface"
-                  style={{ height: '44px', width: '100%', fontSize: '14px' }}
+                  style={{ height: '48px', width: '100%', fontSize: '15px' }}
                 >
-                  + Post a New Task with Escrow
+                  + Post a New Task
                 </button>
               </div>
-
-              <p style={{ marginTop: '16px', fontSize: '11px', color: 'var(--muted)', textAlign: 'center' }}>
-                Contract: <a href="https://arcscan.io" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>0x3A2ADedbd0f5682a4DDCDeE6a3ef4bf5EB77503B ↗</a>
-              </p>
             </div>
           </section>
 
           {/* Antares Schedule / Flow Section */}
-          <section className="antares-card" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--fg)' }}>
-                How Taskbit Works (Verification Lifecycle)
+          <section className="antares-card animate-rise" style={{ padding: '32px', animationDelay: '0.3s' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--fg)' }}>
+                Verification Lifecycle
               </h2>
-              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>EVM + Smart Escrow</span>
+              <span className="antares-badge antares-badge-surface">EVM + Smart Escrow</span>
             </div>
 
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: '16px',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '20px',
               }}
             >
               {[
                 { step: '01', title: 'Post Task & Escrow', desc: 'Poster specifies bounty and locks USDC in the smart contract.' },
                 { step: '02', title: 'Claim & Build', desc: 'Worker claims the open task and implements required code/deliverables.' },
-                { step: '03', title: 'Submit GitHub Proof', desc: 'Worker submits PR link. GitHub API verifies commit & branch status.' },
+                { step: '03', title: 'Submit GitHub Proof', desc: 'Worker submits PR link. API verifies commit & branch status.' },
                 { step: '04', title: 'Release USDC', desc: 'Poster verifies output and releases escrowed USDC directly to worker.' },
               ].map((item, idx) => (
                 <div
                   key={idx}
+                  className="antares-card-interactive"
                   style={{
                     backgroundColor: 'var(--surface-2)',
                     border: '1px solid var(--line)',
-                    borderRadius: '12px',
-                    padding: '16px',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    position: 'relative',
+                    overflow: 'hidden',
                   }}
                 >
+                  <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '80px', fontWeight: 900, color: 'var(--line)', opacity: 0.3, lineHeight: 1 }}>
+                    {item.step}
+                  </div>
                   <div
                     style={{
-                      fontSize: '11px',
-                      fontFamily: 'var(--font-geist-mono), monospace',
-                      fontWeight: 700,
-                      color: 'var(--accent)',
-                      marginBottom: '8px',
+                      position: 'relative',
+                      zIndex: 2,
                     }}
                   >
-                    STAGE {item.step}
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 700,
+                        color: 'var(--accent)',
+                        marginBottom: '10px',
+                        display: 'inline-block',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: 'var(--surface)',
+                        border: '1px solid var(--line)',
+                      }}
+                    >
+                      STAGE {item.step}
+                    </div>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--fg)', marginBottom: '8px' }}>
+                      {item.title}
+                    </h3>
+                    <p style={{ fontSize: '14px', color: 'var(--muted)', lineHeight: 1.5 }}>
+                      {item.desc}
+                    </p>
                   </div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--fg)', marginBottom: '4px' }}>
-                    {item.title}
-                  </h3>
-                  <p style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.45 }}>
-                    {item.desc}
-                  </p>
                 </div>
               ))}
             </div>
