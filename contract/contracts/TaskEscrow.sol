@@ -3,10 +3,15 @@ pragma solidity ^0.8.27;
 
 /**
  * @title TaskEscrow
- * @notice Escrows USDC bounties for Taskbit tasks.
+ * @notice Escrows USDC bounties for Taskbit tasks on Arc.
  *
- *   Creator deposits USDC → work is done → Creator approves → Worker receives USDC
- *                                        → Creator refunds  → Creator gets USDC back
+ * Lifecycle:
+ *   1. Creator registers task: createTask(taskId, bounty) [or with initial worker]
+ *   2. Creator funds escrow:  fundTask(taskId)
+ *   3. Creator assigns worker: assignWorker(taskId, worker)
+ *   4. Work approved:         releasePayment(taskId) → worker receives USDC
+ *      OR
+ *      Task refunded:         refundTask(taskId)     → creator receives USDC
  */
 interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
@@ -35,6 +40,7 @@ contract TaskEscrow {
 
     event TaskCreated(uint256 indexed taskId, address indexed creator, address worker, uint256 bounty);
     event TaskFunded(uint256 indexed taskId, address indexed creator, uint256 amount);
+    event WorkerAssigned(uint256 indexed taskId, address indexed worker);
     event PaymentReleased(uint256 indexed taskId, address indexed worker, uint256 amount);
     event TaskRefunded(uint256 indexed taskId, address indexed creator, uint256 amount);
 
@@ -48,11 +54,13 @@ contract TaskEscrow {
     error AlreadyCompleted();
     error InvalidBounty();
     error InvalidWorker();
+    error WorkerNotAssigned();
     error TransferFailed();
 
     // ── Modifiers ────────────────────────────────────────────
 
     modifier onlyCreator(uint256 taskId) {
+        if (tasks[taskId].creator == address(0)) revert TaskNotFound();
         if (tasks[taskId].creator != msg.sender) revert OnlyCreator();
         _;
     }
@@ -70,15 +78,28 @@ contract TaskEscrow {
     // ── Core Functions ───────────────────────────────────────
 
     /**
-     * @notice Register a new task with a worker and bounty amount.
-     * @param taskId  Off-chain task ID (from the MySQL database).
-     * @param worker  Wallet address of the assigned worker.
+     * @notice Register a new task without an initial worker.
+     * @param taskId  Off-chain task ID (from database).
+     * @param bounty  Bounty amount in USDC (6-decimal token units).
+     */
+    function createTask(uint256 taskId, uint256 bounty) external {
+        _createTask(taskId, address(0), bounty);
+    }
+
+    /**
+     * @notice Register a new task with an initial worker (overloaded).
+     * @param taskId  Off-chain task ID.
+     * @param worker  Wallet address of the assigned worker (can be address(0)).
      * @param bounty  Bounty amount in USDC (6-decimal token units).
      */
     function createTask(uint256 taskId, address worker, uint256 bounty) external {
+        if (worker == msg.sender) revert InvalidWorker();
+        _createTask(taskId, worker, bounty);
+    }
+
+    function _createTask(uint256 taskId, address worker, uint256 bounty) internal {
         if (tasks[taskId].creator != address(0)) revert TaskAlreadyExists();
         if (bounty == 0) revert InvalidBounty();
-        if (worker == address(0)) revert InvalidWorker();
 
         tasks[taskId] = Task({
             creator: msg.sender,
@@ -99,13 +120,29 @@ contract TaskEscrow {
     function fundTask(uint256 taskId) external onlyCreator(taskId) {
         Task storage task = tasks[taskId];
         if (task.funded) revert AlreadyFunded();
+        if (task.completed) revert AlreadyCompleted();
+
+        task.funded = true;
 
         bool success = usdc.transferFrom(msg.sender, address(this), task.bounty);
         if (!success) revert TransferFailed();
 
-        task.funded = true;
-
         emit TaskFunded(taskId, msg.sender, task.bounty);
+    }
+
+    /**
+     * @notice Assign or update the assigned worker for a task.
+     * @param taskId  The task to assign the worker to.
+     * @param worker  The worker's wallet address.
+     */
+    function assignWorker(uint256 taskId, address worker) external onlyCreator(taskId) {
+        Task storage task = tasks[taskId];
+        if (task.completed) revert AlreadyCompleted();
+        if (worker == address(0) || worker == msg.sender) revert InvalidWorker();
+
+        task.worker = worker;
+
+        emit WorkerAssigned(taskId, worker);
     }
 
     /**
@@ -116,6 +153,7 @@ contract TaskEscrow {
         Task storage task = tasks[taskId];
         if (!task.funded) revert NotFunded();
         if (task.completed) revert AlreadyCompleted();
+        if (task.worker == address(0)) revert WorkerNotAssigned();
 
         task.completed = true;
 

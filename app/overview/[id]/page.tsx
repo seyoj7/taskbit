@@ -6,16 +6,45 @@ import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
-import { fetchTaskById, claimTask, submitTaskWork, approveTask, rejectTask, deleteTask, Task } from '../../components/api';
-import { useWallet } from '../../components/WalletProvider';
+import {
+  fetchTaskById,
+  fetchUserById,
+  fetchTaskEscrow,
+  recordTaskFunding,
+  claimTask,
+  submitTaskWork,
+  approveTask,
+  rejectTask,
+  deleteTask,
+  Task,
+  User,
+} from '../../components/api';
+import { useWallet, ARC_TESTNET_CHAIN_ID } from '../../components/WalletProvider';
+import { TASK_ESCROW_ADDRESS, USDC_ADDRESS } from '../../components/contracts';
 
-const TASK_ESCROW_ADDRESS = '0x3A2ADedbd0f5682a4DDCDeE6a3ef4bf5EB77503B';
+const USDC_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function balanceOf(address account) external view returns (uint256)"
+];
+
+const TASK_ESCROW_ABI = [
+  "function createTask(uint256 taskId, uint256 bounty) external",
+  "function createTask(uint256 taskId, address worker, uint256 bounty) external",
+  "function fundTask(uint256 taskId) external",
+  "function assignWorker(uint256 taskId, address worker) external",
+  "function releasePayment(uint256 taskId) external",
+  "function refundTask(uint256 taskId) external",
+  "function getTask(uint256 taskId) external view returns (tuple(address creator, address worker, uint256 bounty, bool funded, bool completed))"
+];
 
 export default function TaskDetail({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const router = useRouter();
-  const { account, user, connectWallet } = useWallet();
+  const { account, user, connectWallet, switchToArcTestnet } = useWallet();
   const [task, setTask] = useState<Task | null>(null);
+  const [workerUser, setWorkerUser] = useState<User | null>(null);
+  const [onchainEscrow, setOnchainEscrow] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [proof, setProof] = useState('');
@@ -24,8 +53,25 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
   const loadTask = async () => {
     try {
-      const fetchedTask = await fetchTaskById(parseInt(unwrappedParams.id));
+      const taskId = parseInt(unwrappedParams.id);
+      const fetchedTask = await fetchTaskById(taskId);
       setTask(fetchedTask);
+
+      if (fetchedTask.worker_id) {
+        try {
+          const w = await fetchUserById(fetchedTask.worker_id);
+          setWorkerUser(w);
+        } catch (e) {
+          console.warn('Could not fetch worker user details:', e);
+        }
+      }
+
+      try {
+        const escrowStatus = await fetchTaskEscrow(taskId);
+        setOnchainEscrow(escrowStatus.onchain);
+      } catch (e) {
+        console.warn('Could not fetch on-chain escrow info:', e);
+      }
     } catch (err) {
       console.error(err);
       setError("Task not found or backend unavailable.");
@@ -65,49 +111,199 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const handleApproveAndEscrow = async () => {
+  const handleFundEscrow = async () => {
     if (!account) return connectWallet();
-    if (!task?.worker_id) return alert("No worker assigned.");
-    
+    if (!task) return;
+
     setIsSubmitting(true);
-    setTxStatus("Requesting wallet signature...");
-    
+    setTxStatus("Connecting to wallet...");
+
     try {
       if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
       const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const network = await provider.getNetwork();
+      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
+        setTxStatus("Switching wallet to Arc Testnet (Chain ID 5042002)...");
+        const switched = await switchToArcTestnet();
+        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Testnet (Chain ID 5042002).");
+      }
       const signer = await provider.getSigner();
-      
-      setTxStatus("Approving USDC transfer...");
-      setTxStatus("Registering Escrow on-chain...");
-      setTxStatus("Funding Escrow...");
-      setTxStatus("Releasing Payment...");
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const mockTxHash = "0xabc123...def456"; 
+
+      const bountyUnits = BigInt(Math.round(Number(task.bounty_usdc) * 1_000_000));
+      const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
+      const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
+
+      setTxStatus("Checking USDC allowance...");
+      const allowance: bigint = await usdc.allowance(account, TASK_ESCROW_ADDRESS);
+      if (allowance < bountyUnits) {
+        setTxStatus("Please approve USDC spend in wallet...");
+        const approveTx = await usdc.approve(TASK_ESCROW_ADDRESS, bountyUnits);
+        setTxStatus("Waiting for USDC approval confirmation...");
+        await approveTx.wait();
+      }
+
+      let alreadyCreated = false;
+      try {
+        const t = await escrow.getTask(task.id);
+        if (t && t.creator && t.creator !== ethers.ZeroAddress) {
+          alreadyCreated = true;
+        }
+      } catch {
+        alreadyCreated = false;
+      }
+
+      if (!alreadyCreated) {
+        setTxStatus("Registering task on Arc Escrow...");
+        try {
+          const createTx = await escrow["createTask(uint256,uint256)"](task.id, bountyUnits);
+          await createTx.wait();
+        } catch (createErr: any) {
+          if (createErr.code === 'CALL_EXCEPTION' || createErr.message?.includes('missing revert data')) {
+            throw new Error(
+              `The contract at ${TASK_ESCROW_ADDRESS} does not support open task creation (createTask without upfront worker). Please deploy the updated TaskEscrow contract to Arc Testnet.`
+            );
+          }
+          throw createErr;
+        }
+      }
+
+      setTxStatus("Funding Escrow with USDC...");
+      const fundTx = await escrow.fundTask(task.id);
+      setTxStatus("Waiting for funding transaction confirmation...");
+      const receipt = await fundTx.wait();
 
       setTxStatus("Updating backend status...");
-      await approveTask(task!.id, account, mockTxHash);
-      
+      await recordTaskFunding(task.id, account, receipt.hash || fundTx.hash);
       await loadTask();
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to execute escrow transaction");
+      alert(err.reason || err.message || "Failed to fund escrow");
     } finally {
       setIsSubmitting(false);
       setTxStatus(null);
     }
   };
 
-  const handleReject = async () => {
+  const handleApproveAndEscrow = async () => {
     if (!account) return connectWallet();
+    if (!task?.worker_id) return alert("No worker assigned.");
+
     setIsSubmitting(true);
+    setTxStatus("Initializing Arc transaction...");
+
     try {
-      await rejectTask(task!.id, account);
+      if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const network = await provider.getNetwork();
+      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
+        setTxStatus("Switching wallet to Arc Testnet (Chain ID 5042002)...");
+        const switched = await switchToArcTestnet();
+        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Testnet (Chain ID 5042002).");
+      }
+      const signer = await provider.getSigner();
+
+      const bountyUnits = BigInt(Math.round(Number(task.bounty_usdc) * 1_000_000));
+      const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
+      const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
+
+      // 1. Check if task exists and is funded on-chain
+      let onchainTask: any = null;
+      try {
+        onchainTask = await escrow.getTask(task.id);
+      } catch (e) {
+        onchainTask = null;
+      }
+
+      if (!onchainTask || onchainTask.creator === ethers.ZeroAddress) {
+        setTxStatus("Checking USDC allowance...");
+        const allowance: bigint = await usdc.allowance(account, TASK_ESCROW_ADDRESS);
+        if (allowance < bountyUnits) {
+          setTxStatus("Approving USDC transfer in wallet...");
+          const approveTx = await usdc.approve(TASK_ESCROW_ADDRESS, bountyUnits);
+          await approveTx.wait();
+        }
+
+        setTxStatus("Registering task in Escrow...");
+        const createTx = await escrow["createTask(uint256,uint256)"](task.id, bountyUnits);
+        await createTx.wait();
+
+        setTxStatus("Funding Escrow...");
+        const fundTx = await escrow.fundTask(task.id);
+        await fundTx.wait();
+      } else if (!onchainTask.funded) {
+        setTxStatus("Funding Escrow...");
+        const fundTx = await escrow.fundTask(task.id);
+        await fundTx.wait();
+      }
+
+      // 2. Ensure worker is assigned on-chain
+      const targetWorkerWallet = workerUser?.wallet_address;
+      if (!targetWorkerWallet) throw new Error("Could not determine assigned worker's wallet address.");
+
+      if (!onchainTask || onchainTask.worker.toLowerCase() !== targetWorkerWallet.toLowerCase()) {
+        setTxStatus("Assigning worker to Escrow on-chain...");
+        const assignTx = await escrow.assignWorker(task.id, targetWorkerWallet);
+        await assignTx.wait();
+      }
+
+      // 3. Release payment
+      setTxStatus("Releasing payment to worker on-chain...");
+      const releaseTx = await escrow.releasePayment(task.id);
+      setTxStatus("Waiting for payment release confirmation...");
+      const receipt = await releaseTx.wait();
+
+      const txHash = receipt.hash || releaseTx.hash;
+
+      setTxStatus("Recording approved status in Taskbit...");
+      await approveTask(task.id, account, txHash);
       await loadTask();
     } catch (err: any) {
-      alert(err.message || "Failed to reject task");
+      console.error(err);
+      alert(err.reason || err.message || "Failed to execute escrow transaction");
     } finally {
       setIsSubmitting(false);
+      setTxStatus(null);
+    }
+  };
+
+  const handleRefund = async () => {
+    if (!account) return connectWallet();
+    if (!confirm("Are you sure you want to refund this task and return the USDC bounty to your wallet?")) return;
+
+    setIsSubmitting(true);
+    setTxStatus("Processing refund on Arc Testnet...");
+
+    try {
+      let refundTxHash: string | undefined = undefined;
+
+      if (onchainEscrow?.funded && !onchainEscrow?.completed) {
+        if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
+        const provider = new ethers.BrowserProvider((window as any).ethereum);
+        const network = await provider.getNetwork();
+        if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
+          setTxStatus("Switching wallet to Arc Testnet (Chain ID 5042002)...");
+          const switched = await switchToArcTestnet();
+          if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Testnet (Chain ID 5042002).");
+        }
+        const signer = await provider.getSigner();
+        const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
+
+        setTxStatus("Requesting Escrow refund transaction in wallet...");
+        const refundTx = await escrow.refundTask(task!.id);
+        setTxStatus("Waiting for refund confirmation...");
+        const receipt = await refundTx.wait();
+        refundTxHash = receipt.hash || refundTx.hash;
+      }
+
+      setTxStatus("Updating backend status...");
+      await rejectTask(task!.id, account, refundTxHash);
+      await loadTask();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.reason || err.message || "Failed to refund task");
+    } finally {
+      setIsSubmitting(false);
+      setTxStatus(null);
     }
   };
 
@@ -219,20 +415,38 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   </h1>
                 </div>
 
-                <span
-                  className={`antares-badge ${
-                    task.status === 'open'
-                      ? 'antares-badge-lime'
-                      : task.status === 'approved'
-                      ? 'antares-badge-up'
-                      : task.status === 'rejected'
-                      ? 'antares-badge-down'
-                      : 'antares-badge-surface'
-                  }`}
-                  style={{ textTransform: 'capitalize', fontSize: '13px', padding: '6px 14px' }}
-                >
-                  {task.status === 'submitted' ? 'Reviewing' : task.status}
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                  <span
+                    className={`antares-badge ${
+                      task.status === 'open'
+                        ? 'antares-badge-lime'
+                        : task.status === 'approved'
+                        ? 'antares-badge-up'
+                        : task.status === 'rejected'
+                        ? 'antares-badge-down'
+                        : 'antares-badge-surface'
+                    }`}
+                    style={{ textTransform: 'capitalize', fontSize: '13px', padding: '6px 14px' }}
+                  >
+                    {task.status === 'submitted' ? 'Reviewing' : task.status}
+                  </span>
+
+                  {onchainEscrow && onchainEscrow.funded && (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: 'var(--up)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontWeight: 600,
+                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                      }}
+                    >
+                      {onchainEscrow.completed ? 'On-Chain Settled' : 'On-Chain Funded ✓'}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div
@@ -256,7 +470,9 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 {task.worker_id && (
                   <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: '20px' }}>
                     <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '2px' }}>ASSIGNED WORKER</span>
-                    <span style={{ fontWeight: 600, color: 'var(--fg)' }}>User #{task.worker_id}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--fg)', fontFamily: workerUser ? 'var(--font-mono)' : 'inherit' }}>
+                      {workerUser ? `${workerUser.wallet_address.slice(0, 6)}…${workerUser.wallet_address.slice(-4)}` : `User #${task.worker_id}`}
+                    </span>
                   </div>
                 )}
 
@@ -335,7 +551,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 >
                   <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--up)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    ESCROW FUNDS RELEASED ON-CHAIN
+                    ESCROW FUNDS SETTLED ON-CHAIN
                   </div>
                   <p style={{ fontSize: '13px', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
                     Tx Hash: {task.tx_hash}
@@ -380,12 +596,14 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   </dd>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>Protocol Fee</dt>
-                  <dd style={{ color: 'var(--accent)', fontWeight: 600 }}>0.0% (Free)</dd>
+                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>On-Chain Deposit</dt>
+                  <dd style={{ color: onchainEscrow?.funded ? 'var(--up)' : 'var(--muted)', fontWeight: 600 }}>
+                    {onchainEscrow?.funded ? 'Funded ✓' : 'Pending Deposit'}
+                  </dd>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>Network Fee</dt>
-                  <dd style={{ color: 'var(--muted)', fontSize: '13px' }}>Paid by caller</dd>
+                  <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>Protocol Fee</dt>
+                  <dd style={{ color: 'var(--accent)', fontWeight: 600 }}>0.0% (Free)</dd>
                 </div>
                 <div
                   style={{
@@ -396,12 +614,42 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                     fontWeight: 700,
                   }}
                 >
-                  <dt style={{ color: 'var(--fg)' }}>Total Payout</dt>
+                  <dt style={{ color: 'var(--fg)' }}>Total Worker Payout</dt>
                   <dd style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '16px' }}>
                     ${task.bounty_usdc} USDC
                   </dd>
                 </div>
               </dl>
+
+              {txStatus && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    color: '#60a5fa',
+                    fontSize: '13px',
+                    marginTop: '20px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      border: '2px solid #60a5fa',
+                      borderTopColor: 'transparent',
+                      animation: 'spin 0.8s linear infinite',
+                      display: 'inline-block',
+                    }}
+                  />
+                  {txStatus}
+                </div>
+              )}
 
               <div style={{ marginTop: '32px', borderTop: '1px solid var(--line)', paddingTop: '24px' }}>
                 {!account && (
@@ -415,6 +663,19 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       onClick={connectWallet}
                     >
                       Connect Wallet
+                    </button>
+                  </div>
+                )}
+
+                {account && isPoster && !onchainEscrow?.funded && task.status !== 'approved' && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <button
+                      className="antares-btn-accent"
+                      style={{ width: '100%', height: '48px', fontSize: '14px', marginBottom: '12px' }}
+                      onClick={handleFundEscrow}
+                      disabled={isSubmitting}
+                    >
+                      Deposit &amp; Fund Escrow ({task.bounty_usdc} USDC)
                     </button>
                   </div>
                 )}
@@ -450,12 +711,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       onClick={handleSubmitWork}
                       disabled={isSubmitting || !proof}
                     >
-                      {isSubmitting ? (
-                        <>
-                          <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: 'var(--accent-fg)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: '8px' }} />
-                          Submitting…
-                        </>
-                      ) : 'Submit Proof for Approval'}
+                      {isSubmitting ? 'Submitting…' : 'Submit Proof for Approval'}
                     </button>
                   </div>
                 )}
@@ -468,20 +724,15 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       onClick={handleApproveAndEscrow}
                       disabled={isSubmitting}
                     >
-                      {isSubmitting ? (
-                        <>
-                          <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: 'var(--accent-fg)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: '8px' }} />
-                          {txStatus || 'Processing…'}
-                        </>
-                      ) : 'Approve & Release USDC'}
+                      {isSubmitting ? (txStatus || 'Processing…') : 'Approve & Release USDC'}
                     </button>
                     <button
                       className="antares-btn-surface"
                       style={{ width: '100%', height: '44px', color: 'var(--down)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
-                      onClick={handleReject}
+                      onClick={handleRefund}
                       disabled={isSubmitting}
                     >
-                      Reject Proof &amp; Reopen Task
+                      Reject Proof &amp; Refund Escrow
                     </button>
                   </div>
                 )}

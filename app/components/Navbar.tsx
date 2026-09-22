@@ -92,6 +92,13 @@ export default function Navbar() {
         </div>
 
         <div className={styles.rightSection}>
+          {account && (
+            <div className={styles.networkBadge} title="Connected to Arc Testnet (Chain ID 5042002)">
+              <span className={styles.networkDot} />
+              <span>Arc Testnet</span>
+            </div>
+          )}
+
           {account ? (
             <div ref={dropdownRef} className={styles.walletContainer}>
               <button
@@ -101,7 +108,7 @@ export default function Navbar() {
                 title="Wallet options"
               >
                 <span className={styles.statusDot} />
-                <span>{account.slice(0, 6)}...{account.slice(-6)}</span>
+                <span>{account.slice(0, 5)}...{account.slice(-4)}</span>
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -117,6 +124,14 @@ export default function Navbar() {
 
               {isDropdownOpen && (
                 <div className={styles.dropdownMenu}>
+                  <div className={styles.networkSummary}>
+                    <span className={styles.networkLabel}>Network</span>
+                    <span className={styles.networkValue}>
+                      <span className={styles.networkDot} />
+                      Arc Testnet
+                    </span>
+                  </div>
+
                   <div className={styles.accountSummary}>
                     <div className={styles.accountDetails}>
                       <span className={styles.accountLabel}>Connected Wallet</span>
