@@ -90,11 +90,9 @@ export default function Dashboard() {
               </div>
 
               <div className={styles.statItem}>
-                <div className="text-label-micro">24H Volume</div>
-                <div className={styles.statValueSmall}>
-                  <span className={`antares-badge antares-badge-up ${styles.statBadge}`}>
-                    +14.2% ↑
-                  </span>
+                <div className="text-label-micro">Avg Bounty</div>
+                <div className={styles.statValue}>
+                  ${tasks.length > 0 ? Math.round(totalBounties / tasks.length) : 0} <span className={styles.statCurrency}>USDC</span>
                 </div>
               </div>
 

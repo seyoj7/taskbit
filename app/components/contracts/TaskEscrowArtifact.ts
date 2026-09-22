@@ -408,13 +408,21 @@ export const TASK_ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || 
 export const USDC_ADDRESS = (process.env.NEXT_PUBLIC_USDC_ADDRESS || '').trim();
 export const ARC_TESTNET_RPC_URL = (process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_URL || 'https://arc-testnet.drpc.org').trim();
 
-// Runtime check in browser to warn developer if environment variables are missing
+// Runtime validation: warn if critical contract configuration is missing
 if (typeof window !== 'undefined') {
   if (!TASK_ESCROW_ADDRESS) {
-    console.error("Taskbit Configuration Error: CONTRACT_ADDRESS is not set in .env!");
+    console.error(
+      "⚠ Taskbit: CONTRACT_ADDRESS is not set in .env! " +
+      "On-chain escrow operations will fail. " +
+      "Add CONTRACT_ADDRESS to your root .env file and restart the dev server."
+    );
   }
   if (!USDC_ADDRESS) {
-    console.error("Taskbit Configuration Error: USDC_ADDRESS is not set in .env!");
+    console.error(
+      "⚠ Taskbit: USDC_ADDRESS is not set in .env! " +
+      "USDC token operations will fail. " +
+      "Add USDC_ADDRESS to your root .env file and restart the dev server."
+    );
   }
 }
 

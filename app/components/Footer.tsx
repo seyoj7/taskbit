@@ -12,9 +12,9 @@ export default function Footer() {
         </div>
         
         <div className={styles.links}>
-          <a href="#" className={styles.link}>Twitter</a>
-          <a href="#" className={styles.link}>Discord</a>
-          <a href="#" className={styles.link}>GitHub</a>
+          <a href="https://explorer.testnet.arc.io" target="_blank" rel="noopener noreferrer" className={styles.link}>Arc Explorer ↗</a>
+          <a href="/marketplace" className={styles.link}>Marketplace</a>
+          <a href="/post-task" className={styles.link}>Post Task</a>
         </div>
       </div>
     </footer>

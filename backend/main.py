@@ -36,7 +36,13 @@ from escrow import (
 #  Configuration & Auth Secrets
 # ═══════════════════════════════════════════════════════════════
 
-JWT_SECRET = os.getenv("JWT_SECRET", "taskbit-arc-secret-key-production-2026")
+_jwt_secret_raw = os.getenv("JWT_SECRET")
+if not _jwt_secret_raw and os.getenv("TESTING") != "1":
+    raise RuntimeError(
+        "JWT_SECRET is not set in .env — required for secure authentication. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+JWT_SECRET = _jwt_secret_raw or "test-only-insecure-jwt-secret"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
@@ -626,12 +632,14 @@ def create_task(
 @app.get("/tasks/", response_model=List[TaskResponse])
 def list_tasks(
     task_status: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
     query = db.query(Task)
     if task_status:
         query = query.filter(Task.status == task_status)
-    return query.order_by(Task.created_at.desc()).all()
+    return query.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
 
 
 @app.get("/tasks/{task_id}", response_model=TaskResponse)
@@ -864,6 +872,12 @@ def delete_task(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Cannot delete an already approved/completed task.",
+        )
+
+    if task.fund_tx_hash:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete a funded task. Use reject/refund to return the on-chain escrow first.",
         )
 
     db.delete(task)
