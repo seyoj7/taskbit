@@ -137,6 +137,10 @@ button {
   pointer-events: none;
 }
 
+.antares-card-interactive {
+  cursor: pointer;
+}
+
 .antares-card-interactive:hover {
   border-color: var(--muted);
   transform: translateY(-4px) scale(1.01);
@@ -291,10 +295,6 @@ button {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
-  transition: transform 0.2s ease;
-}
-.antares-badge:hover {
-  transform: translateY(-1px);
 }
 
 .antares-badge-lime {

@@ -92,19 +92,12 @@ export default function Navbar() {
         </div>
 
         <div className={styles.rightSection}>
-          {account && (
-            <div className={styles.networkBadge} title="Connected to Arc Testnet (Chain ID 5042002)">
-              <span className={styles.networkDot} />
-              <span>Arc Testnet</span>
-            </div>
-          )}
-
           {account ? (
             <div ref={dropdownRef} className={styles.walletContainer}>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen((prev) => !prev)}
-                className={`antares-btn-surface ${styles.walletBtn}`}
+                className={styles.walletBtn}
                 title="Wallet options"
               >
                 <span className={styles.statusDot} />
@@ -176,7 +169,7 @@ export default function Navbar() {
             </div>
           ) : (
             <button
-              className={`antares-btn-accent ${styles.connectBtn}`}
+              className={styles.connectBtn}
               onClick={connectWallet}
               disabled={isLoading}
             >

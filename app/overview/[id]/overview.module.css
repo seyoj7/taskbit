@@ -101,6 +101,40 @@
   align-items: start;
 }
 
+.cardInner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  align-items: start;
+}
+
+.leftSection {
+  padding-right: 28px;
+  min-width: 0;
+}
+
+.rightSection {
+  border-left: 1px solid var(--line);
+  padding-left: 28px;
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .cardInner {
+    grid-template-columns: 1fr;
+  }
+  .leftSection {
+    padding-right: 0;
+  }
+  .rightSection {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 24px;
+    margin-top: 24px;
+  }
+}
+
 .leftColumn {
   padding: 32px;
   animation-delay: 0.1s;
@@ -259,19 +293,21 @@
 }
 
 .bountyValue {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
   font-family: var(--font-mono);
   color: var(--fg);
-  margin-top: 8px;
-  margin-bottom: 24px;
+  margin-top: 0;
+  margin-bottom: 18px;
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
 
 .bountyCurrency {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--accent);
 }
@@ -329,9 +365,9 @@
 }
 
 .actionsContainer {
-  margin-top: 32px;
+  margin-top: 16px;
   border-top: 1px solid var(--line);
-  padding-top: 24px;
+  padding-top: 16px;
 }
 
 .actionWrapper {

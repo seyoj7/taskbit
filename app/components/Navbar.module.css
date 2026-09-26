@@ -64,22 +64,6 @@
   gap: 10px;
 }
 
-.networkBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 9999px;
-  border: 1px solid var(--line);
-  background-color: var(--surface-2);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--fg);
-  white-space: nowrap;
-  letter-spacing: -0.01em;
-}
-
 .networkDot {
   width: 7px;
   height: 7px;
@@ -99,16 +83,22 @@
   gap: 8px;
   height: 36px;
   padding: 0 12px 0 14px;
-  border-radius: 9999px;
+  border-radius: 10px;
   border: 1px solid var(--line);
-  background-color: var(--surface-2);
+  background-color: var(--surface);
   font-size: 13px;
   font-weight: 600;
   font-family: var(--font-geist-mono), monospace;
   box-sizing: border-box;
   cursor: pointer;
   color: var(--fg);
-  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.walletBtn:hover {
+  background-color: var(--surface-2);
+  border-color: var(--muted);
 }
 
 .statusDot {
@@ -249,7 +239,31 @@
 }
 
 .connectBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   height: 36px;
   padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  color: var(--fg);
   font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.connectBtn:hover:not(:disabled) {
+  background-color: var(--surface-2);
+  border-color: var(--muted);
+  color: var(--fg);
+}
+
+.connectBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

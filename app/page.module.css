@@ -2,7 +2,7 @@
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  padding: 48px 16px;
+  padding: 80px 16px 64px 16px;
   flex: 1;
 }
 
@@ -42,129 +42,145 @@
 }
 
 .actionPanel {
-  padding: 24px;
+  padding: 22px 22px;
   animation-delay: 0.2s;
   width: 100%;
-  flex: 1 1 320px;
+  flex: 1 1 380px;
   max-width: 440px;
 }
 
 .actionHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  margin-bottom: 4px;
 }
 
 .actionTitle {
-  font-size: 20px;
+  font-size: 16.5px;
   font-weight: 800;
   color: var(--fg);
 }
 
 .actionDesc {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--muted);
-  margin-top: 8px;
-  line-height: 1.6;
+  margin-top: 5px;
+  line-height: 1.45;
 }
 
-.simBox {
-  margin-top: 20px;
-  padding: 16px;
-  border-radius: 16px;
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+@media (max-width: 440px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statBox {
   background-color: var(--surface-2);
   border: 1px solid var(--line);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
-}
-
-.simRow {
+  border-radius: 11px;
+  padding: 13px 14px;
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
-  align-items: center;
+  transition: all 0.25s ease;
 }
 
-.simLabel {
-  font-size: 14px;
-  color: var(--muted);
-  font-weight: 600;
+.statBox:hover {
+  border-color: rgba(217, 249, 29, 0.25);
+  background-color: var(--surface-3);
+  transform: translateY(-1px);
 }
 
-.simControls {
+.statTopRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
-.simBtn {
-  height: 36px;
-  width: 36px;
-  font-size: 18px;
-}
-
-.simValue {
-  font-size: 18px;
+.statLabel {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   font-weight: 700;
+  color: var(--muted);
+}
+
+.statTag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border: 1px solid rgba(217, 249, 29, 0.3);
   font-family: var(--font-mono);
 }
 
-.summaryTable {
-  margin-top: 16px;
+.statValue {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  line-height: 1.15;
+}
+
+.statValueAccent {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  line-height: 1.15;
+}
+
+.statSubtext {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.protocolAssurance {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  font-size: 14px;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  background-color: var(--surface-2);
+  border: 1px dashed var(--line);
+  border-radius: 11px;
 }
 
-.summaryRow {
+.assuranceRow {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  font-size: 11px;
 }
 
-.summaryDt {
+.assuranceKey {
   color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-weight: 500;
 }
 
-.summaryDd {
+.assuranceVal {
   font-weight: 600;
-  font-family: var(--font-mono);
-}
-
-.summaryDdSmall {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.summaryRowTotal {
-  display: flex;
-  justify-content: space-between;
-  border-top: 1px dashed var(--line);
-  padding-top: 8px;
-  font-weight: 700;
-}
-
-.summaryDtTotal {
   color: var(--fg);
-}
-
-.summaryDdTotal {
-  color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 16px;
-}
-
-.actionButtons {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 20px;
+  align-items: center;
+  gap: 5px;
 }
 
-.actionBtn {
-  height: 48px;
-  width: 100%;
-  font-size: 15px;
-}
 
 .lifecycleSection {
   padding: 32px;
@@ -184,6 +200,18 @@
   color: var(--fg);
 }
 
+.lifecycleBadge {
+  cursor: default;
+  user-select: none;
+  transition: none !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+.lifecycleBadge:hover {
+  transform: none !important;
+}
+
 .lifecycleGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -197,6 +225,7 @@
   padding: 24px;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .stepBgNumber {
