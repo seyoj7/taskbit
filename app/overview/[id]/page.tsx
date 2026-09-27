@@ -427,6 +427,17 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   const isExpired = task ? new Date(task.expires_at).getTime() < Date.now() : false;
   const isTerminal = ['paid', 'refunded', 'archived'].includes(task.status);
 
+  const showRefund = Boolean(account && isPoster && isExpired && task.status === 'funded');
+  const showConnect = Boolean(!account && !isTerminal);
+  const showFund = Boolean(account && isPoster && task.status === 'posted');
+  const showClaim = Boolean(account && task.status === 'funded' && !isPoster && !isExpired);
+  const showSubmit = Boolean(account && (task.status === 'claimed' || task.status === 'rejected') && isWorker);
+  const showApprove = Boolean(account && task.status === 'submitted' && isPoster);
+  const showPosterWait = Boolean(account && isPoster && task.status === 'funded' && !isExpired);
+  const showTerminal = Boolean(isTerminal);
+
+  const hasActions = showRefund || showConnect || showFund || showClaim || showSubmit || showApprove || showPosterWait || showTerminal;
+
   return (
     <>
       <Navbar />
@@ -822,10 +833,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '14px',
+                  gap: '16px',
                   fontSize: '14px',
                   borderTop: '1px solid var(--line)',
-                  paddingTop: '20px',
+                  paddingTop: '16px',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -908,11 +919,12 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
               )}
 
               {/* ── Action Buttons ─────────────────────────── */}
-              <div style={{ marginTop: '16px', borderTop: '1px solid var(--line)', paddingTop: '16px' }}>
+              {hasActions && (
+                <div style={{ marginTop: '16px', borderTop: '1px solid var(--line)', paddingTop: '16px' }}>
 
-                {/* Refund expired funded task (no submissions) */}
-                {account && isExpired && task.status === 'funded' && (
-                  <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                  {/* Refund expired funded task (no submissions) */}
+                {account && isPoster && isExpired && task.status === 'funded' && (
+                  <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <button
                       className="antares-btn-surface"
                       style={{ width: '100%', height: '44px', color: 'var(--down)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
@@ -942,10 +954,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
                 {/* Poster: fund the escrow (posted → funded) */}
                 {account && isPoster && task.status === 'posted' && (
-                  <div style={{ marginBottom: '16px' }}>
+                  <div>
                     <button
                       className="antares-btn-accent"
-                      style={{ width: '100%', height: '48px', fontSize: '14px', marginBottom: '12px' }}
+                      style={{ width: '100%', height: '48px', fontSize: '14px' }}
                       onClick={handleFundEscrow}
                       disabled={isSubmitting}
                     >
@@ -1053,9 +1065,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                         : 'Task archived'}
                   </div>
                 )}
-              </div>
+                </div>
+              )}
 
-              <div style={{ marginTop: '24px', borderTop: '1px solid var(--line)', paddingTop: '20px', fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>
+              <div style={{ marginTop: '16px', borderTop: '1px solid var(--line)', paddingTop: '16px', fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>
                 Verified on Arc Testnet · Contract: {TASK_ESCROW_ADDRESS.slice(0,6)}…{TASK_ESCROW_ADDRESS.slice(-4)}
               </div>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 import { createTask, recordTaskFunding, getAuthToken } from '../components/api';
@@ -28,7 +28,21 @@ export default function PostTask() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [bounty, setBounty] = useState<number | ''>('');
+  const [deadlineMode, setDeadlineMode] = useState<'3d' | '1w' | '2w' | 'custom'>('1w');
   const [expiresAt, setExpiresAt] = useState('');
+
+  useEffect(() => {
+    if (deadlineMode === 'custom') return;
+    const date = new Date();
+    if (deadlineMode === '3d') date.setDate(date.getDate() + 3);
+    else if (deadlineMode === '1w') date.setDate(date.getDate() + 7);
+    else if (deadlineMode === '2w') date.setDate(date.getDate() + 14);
+    
+    // Format as YYYY-MM-DDThh:mm for datetime-local compatibility (and standard ISO)
+    const tzoffset = date.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
+    setExpiresAt(localISOTime);
+  }, [deadlineMode]);
   const [fundOnChain, setFundOnChain] = useState(true);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -150,10 +164,9 @@ export default function PostTask() {
       console.error(err);
       // Task stays as 'posted' (unfunded) — poster can fund it later or leave it
       setError(
-        `Task creation cancelled: ${
-          err.code === 4001 || err.message?.includes('rejected')
-            ? 'Wallet transaction rejected.'
-            : (err.reason || err.message || 'Transaction could not be completed.')
+        `Task creation cancelled: ${err.code === 4001 || err.message?.includes('rejected')
+          ? 'Wallet transaction rejected.'
+          : (err.reason || err.message || 'Transaction could not be completed.')
         }`
       );
     } finally {
@@ -260,7 +273,7 @@ export default function PostTask() {
                   step="0.01"
                   value={bounty}
                   onChange={(e) => setBounty(e.target.value ? Number(e.target.value) : '')}
-                  placeholder="100.00"
+                  placeholder="10.00"
                   className={`antares-input glass ${styles.bountyInput}`}
                   required
                 />
@@ -271,16 +284,43 @@ export default function PostTask() {
             </div>
 
             <div>
-              <label className={styles.label}>
-                Task Deadline
+              <label className={styles.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <span>Task Deadline</span>
+                <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 500, textTransform: 'none', letterSpacing: 'normal' }}>
+                  {deadlineMode !== 'custom' && expiresAt ? new Date(expiresAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+                </span>
               </label>
-              <input
-                type="datetime-local"
-                value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
-                className="antares-input glass"
-                required
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: deadlineMode === 'custom' ? '12px' : '0' }}>
+                {([
+                  { id: '3d', label: '3 Days' },
+                  { id: '1w', label: '1 Week' },
+                  { id: '2w', label: '2 Weeks' },
+                  { id: 'custom', label: 'Custom' }
+                ] as const).map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setDeadlineMode(opt.id)}
+                    className={deadlineMode === opt.id ? "antares-btn-accent" : "antares-btn-surface"}
+                    style={{ height: '40px', padding: '0', fontSize: '13px', width: '100%' }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              
+              {deadlineMode === 'custom' && (
+                <input
+                  type="datetime-local"
+                  value={expiresAt}
+                  onChange={(e) => {
+                    setExpiresAt(e.target.value);
+                    setDeadlineMode('custom');
+                  }}
+                  className="antares-input glass animate-rise"
+                  required
+                />
+              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', backgroundColor: 'var(--surface-2)', borderRadius: '12px', border: '1px solid var(--line)' }}>
