@@ -15,212 +15,7 @@ if not CONTRACT_ADDRESS_RAW:
 RPC_URL = os.getenv("ARC_TESTNET_RPC_URL", "https://arc-testnet.drpc.org")
 
 # Complete TaskEscrow ABI
-TASK_ESCROW_ABI = [
-    {
-        "inputs": [{"internalType": "address", "name": "_usdc", "type": "address"}],
-        "stateMutability": "nonpayable",
-        "type": "constructor"
-    },
-    {
-        "inputs": [],
-        "name": "AlreadyCompleted",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "AlreadyFunded",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InvalidBounty",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "InvalidWorker",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "NotFunded",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "OnlyCreator",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "TaskAlreadyExists",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "TaskNotFound",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "TransferFailed",
-        "type": "error"
-    },
-    {
-        "inputs": [],
-        "name": "WorkerNotAssigned",
-        "type": "error"
-    },
-    {
-        "anonymous": False,
-        "inputs": [
-            {"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"},
-            {"indexed": True, "internalType": "address", "name": "worker", "type": "address"},
-            {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}
-        ],
-        "name": "PaymentReleased",
-        "type": "event"
-    },
-    {
-        "anonymous": False,
-        "inputs": [
-            {"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"},
-            {"indexed": True, "internalType": "address", "name": "creator", "type": "address"},
-            {"indexed": False, "internalType": "address", "name": "worker", "type": "address"},
-            {"indexed": False, "internalType": "uint256", "name": "bounty", "type": "uint256"}
-        ],
-        "name": "TaskCreated",
-        "type": "event"
-    },
-    {
-        "anonymous": False,
-        "inputs": [
-            {"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"},
-            {"indexed": True, "internalType": "address", "name": "creator", "type": "address"},
-            {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}
-        ],
-        "name": "TaskFunded",
-        "type": "event"
-    },
-    {
-        "anonymous": False,
-        "inputs": [
-            {"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"},
-            {"indexed": True, "internalType": "address", "name": "creator", "type": "address"},
-            {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}
-        ],
-        "name": "TaskRefunded",
-        "type": "event"
-    },
-    {
-        "anonymous": False,
-        "inputs": [
-            {"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"},
-            {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}
-        ],
-        "name": "WorkerAssigned",
-        "type": "event"
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "taskId", "type": "uint256"},
-            {"internalType": "address", "name": "worker", "type": "address"}
-        ],
-        "name": "assignWorker",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "taskId", "type": "uint256"},
-            {"internalType": "uint256", "name": "bounty", "type": "uint256"}
-        ],
-        "name": "createTask",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "taskId", "type": "uint256"},
-            {"internalType": "address", "name": "worker", "type": "address"},
-            {"internalType": "uint256", "name": "bounty", "type": "uint256"}
-        ],
-        "name": "createTask",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
-        "name": "fundTask",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
-        "name": "getTask",
-        "outputs": [
-            {
-                "components": [
-                    {"internalType": "address", "name": "creator", "type": "address"},
-                    {"internalType": "address", "name": "worker", "type": "address"},
-                    {"internalType": "uint256", "name": "bounty", "type": "uint256"},
-                    {"internalType": "bool", "name": "funded", "type": "bool"},
-                    {"internalType": "bool", "name": "completed", "type": "bool"}
-                ],
-                "internalType": "struct TaskEscrow.Task",
-                "name": "",
-                "type": "tuple"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "owner",
-        "outputs": [{"internalType": "address", "name": "", "type": "address"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
-        "name": "refundTask",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
-        "name": "releasePayment",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
-        "name": "tasks",
-        "outputs": [
-            {"internalType": "address", "name": "creator", "type": "address"},
-            {"internalType": "address", "name": "worker", "type": "address"},
-            {"internalType": "uint256", "name": "bounty", "type": "uint256"},
-            {"internalType": "bool", "name": "funded", "type": "bool"},
-            {"internalType": "bool", "name": "completed", "type": "bool"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "usdc",
-        "outputs": [{"internalType": "contract IERC20", "name": "", "type": "address"}],
-        "stateMutability": "view",
-        "type": "function"
-    }
-]
+TASK_ESCROW_ABI = [{"inputs": [{"internalType": "address", "name": "_usdc", "type": "address"}], "stateMutability": "nonpayable", "type": "constructor"}, {"inputs": [], "name": "AlreadyCompleted", "type": "error"}, {"inputs": [], "name": "AlreadyFunded", "type": "error"}, {"inputs": [], "name": "InvalidBounty", "type": "error"}, {"inputs": [], "name": "InvalidWorker", "type": "error"}, {"inputs": [], "name": "NotFunded", "type": "error"}, {"inputs": [], "name": "OnlyCreator", "type": "error"}, {"inputs": [], "name": "TaskAlreadyExists", "type": "error"}, {"inputs": [], "name": "TaskExpired", "type": "error"}, {"inputs": [], "name": "TaskNotExpired", "type": "error"}, {"inputs": [], "name": "TaskNotFound", "type": "error"}, {"inputs": [], "name": "TransferFailed", "type": "error"}, {"inputs": [], "name": "WorkAlreadySubmitted", "type": "error"}, {"inputs": [], "name": "WorkerNotAssigned", "type": "error"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "PaymentReleased", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "address", "name": "worker", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "bounty", "type": "uint256"}, {"indexed": False, "internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "TaskCreated", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "TaskFunded", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "TaskRefunded", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}], "name": "WorkSubmitted", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}], "name": "WorkerAssigned", "type": "event"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "address", "name": "worker", "type": "address"}], "name": "assignWorker", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "createTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "createTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "getTask", "outputs": [{"components": [{"internalType": "address", "name": "creator", "type": "address"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}, {"internalType": "bool", "name": "funded", "type": "bool"}, {"internalType": "bool", "name": "completed", "type": "bool"}, {"internalType": "bool", "name": "workSubmitted", "type": "bool"}], "internalType": "struct TaskEscrow.Task", "name": "", "type": "tuple"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "owner", "outputs": [{"internalType": "address", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "refundTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "releasePayment", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "submitWork", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "name": "tasks", "outputs": [{"internalType": "address", "name": "creator", "type": "address"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}, {"internalType": "bool", "name": "funded", "type": "bool"}, {"internalType": "bool", "name": "completed", "type": "bool"}, {"internalType": "bool", "name": "workSubmitted", "type": "bool"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "usdc", "outputs": [{"internalType": "contract IERC20", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}]
 
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -279,7 +74,7 @@ def get_onchain_escrow_task(task_id: int) -> Dict[str, Any]:
     
     try:
         task_data = contract.functions.getTask(task_id).call()
-        creator, worker, bounty, funded, completed = task_data
+        creator, worker, bounty, expiryTimestamp, funded, completed, workSubmitted = task_data
         
         # If creator is zero address, task doesn't exist on-chain
         if creator.lower() == ZERO_ADDRESS.lower():
@@ -295,8 +90,10 @@ def get_onchain_escrow_task(task_id: int) -> Dict[str, Any]:
             "worker_assigned": has_worker,
             "bounty_raw": bounty,
             "bounty_usdc": float(Decimal(bounty) / Decimal(10**6)),
+            "expiryTimestamp": expiryTimestamp,
             "funded": funded,
             "completed": completed,
+            "workSubmitted": workSubmitted,
         }
     except ContractLogicError:
         # Reverted with TaskNotFound()
@@ -311,7 +108,8 @@ def get_onchain_escrow_task(task_id: int) -> Dict[str, Any]:
 
 def _verify_receipt(tx_hash: str) -> Dict[str, Any]:
     """Helper to validate transaction hash format and fetch successful receipt."""
-    if tx_hash.startswith("0xMock"):
+    # In test environment, skip on-chain verification
+    if os.getenv("TESTING") == "1" or tx_hash.startswith("0xMock"):
         return {"verified": True, "is_mock": True, "tx_hash": tx_hash}
 
     if not (tx_hash.startswith("0x") and len(tx_hash) == 66):

@@ -20,7 +20,7 @@ export default function Home() {
       .then((tasks: Task[]) => {
         if (!mounted || !Array.isArray(tasks) || tasks.length === 0) return;
         const total = tasks.reduce((sum, t) => sum + Number(t.bounty_usdc || 0), 0);
-        const open = tasks.filter((t) => t.status === 'open').length;
+        const open = tasks.filter((t) => t.status === 'funded').length;
         const active = tasks.filter((t) => t.status !== 'rejected').length;
         setStats({
           totalVolume: total > 0 ? total : 1250,

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
-import { createTask, recordTaskFunding, deleteTask, getAuthToken } from '../components/api';
+import { createTask, recordTaskFunding, getAuthToken } from '../components/api';
 import { useWallet, ARC_TESTNET_CHAIN_ID } from '../components/WalletProvider';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -17,7 +17,7 @@ const USDC_ABI = [
 ];
 
 const TASK_ESCROW_ABI = [
-  "function createTask(uint256 taskId, uint256 bounty) external",
+  "function createTask(uint256 taskId, uint256 bounty, uint256 expiryTimestamp) external",
   "function fundTask(uint256 taskId) external",
   "function getTask(uint256 taskId) external view returns (tuple(address creator, address worker, uint256 bounty, bool funded, bool completed))"
 ];
@@ -28,6 +28,7 @@ export default function PostTask() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [bounty, setBounty] = useState<number | ''>('');
+  const [expiresAt, setExpiresAt] = useState('');
   const [fundOnChain, setFundOnChain] = useState(true);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -46,8 +47,13 @@ export default function PostTask() {
       return;
     }
 
-    if (!title || !description || bounty === '' || Number(bounty) <= 0) {
+    if (!title || !description || bounty === '' || Number(bounty) <= 0 || !expiresAt) {
       setError('Please fill in all fields with valid data.');
+      return;
+    }
+    const expiryDate = new Date(expiresAt);
+    if (expiryDate.getTime() <= Date.now()) {
+      setError('Deadline must be in the future.');
       return;
     }
 
@@ -75,6 +81,7 @@ export default function PostTask() {
         description,
         bounty_usdc: Number(bounty),
         poster_wallet_address: account,
+        expires_at: expiryDate.toISOString(),
       });
       createdTaskId = createdTask.id;
 
@@ -112,11 +119,15 @@ export default function PostTask() {
           alreadyCreated = false;
         }
 
+        let finalTxHash = '';
         if (!alreadyCreated) {
-          setStatusMsg('Registering task in Arc Escrow contract...');
+          setStatusMsg('Registering and Funding task on Arc Escrow...');
           try {
-            const createTx = await escrow["createTask(uint256,uint256)"](createdTaskId, bountyUnits);
-            await createTx.wait();
+            const expiryTimestamp = Math.floor(expiryDate.getTime() / 1000);
+            const createTx = await escrow["createTask(uint256,uint256,uint256)"](createdTaskId, bountyUnits, expiryTimestamp);
+            setStatusMsg('Confirming on-chain transaction...');
+            const receipt = await createTx.wait();
+            finalTxHash = receipt?.hash || createTx.hash;
           } catch (createErr: any) {
             if (createErr.code === 'CALL_EXCEPTION' || createErr.message?.includes('missing revert data')) {
               throw new Error(
@@ -127,27 +138,17 @@ export default function PostTask() {
           }
         }
 
-        setStatusMsg('Funding Escrow with USDC...');
-        const fundTx = await escrow.fundTask(createdTaskId);
-        setStatusMsg('Confirming on-chain funding...');
-        const receipt = await fundTx.wait();
-
         // 3. Update backend with on-chain funding tx hash
-        setStatusMsg('Synchronizing escrow status with backend...');
-        await recordTaskFunding(createdTaskId, account, receipt.hash || fundTx.hash);
+        if (finalTxHash) {
+          setStatusMsg('Synchronizing escrow status with backend...');
+          await recordTaskFunding(createdTaskId, account, finalTxHash);
+        }
       }
 
       router.push('/marketplace');
     } catch (err: any) {
       console.error(err);
-      // If user rejected the on-chain transaction or funding failed, delete draft task so it's not created
-      if (createdTaskId) {
-        try {
-          await deleteTask(createdTaskId, account);
-        } catch (delErr) {
-          console.warn('Failed to clean up un-funded task:', delErr);
-        }
-      }
+      // Task stays as 'posted' (unfunded) — poster can fund it later or leave it
       setError(
         `Task creation cancelled: ${
           err.code === 4001 || err.message?.includes('rejected')
@@ -267,6 +268,19 @@ export default function PostTask() {
                   USDC
                 </span>
               </div>
+            </div>
+
+            <div>
+              <label className={styles.label}>
+                Task Deadline
+              </label>
+              <input
+                type="datetime-local"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+                className="antares-input glass"
+                required
+              />
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', backgroundColor: 'var(--surface-2)', borderRadius: '12px', border: '1px solid var(--line)' }}>

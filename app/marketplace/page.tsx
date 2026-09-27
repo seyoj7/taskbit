@@ -56,7 +56,7 @@ export default function Dashboard() {
   }, [tasks]);
 
   const openTasksCount = useMemo(() => {
-    return tasks.filter((t) => t.status === 'open').length;
+    return tasks.filter((t) => t.status === 'funded').length;
   }, [tasks]);
 
   return (
@@ -186,12 +186,14 @@ export default function Dashboard() {
                   description={task.description || 'No description provided.'}
                   bounty={Number(task.bounty_usdc)}
                   status={
-                    task.status === 'open'
+                    task.status === 'funded'
                       ? 'Open'
+                      : task.status === 'posted'
+                      ? 'Pending Deposit'
                       : task.status === 'claimed'
                       ? 'In Progress'
                       : task.status === 'submitted'
-                      ? 'In Progress'
+                      ? 'In Review'
                       : 'Completed'
                   }
                 />

@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_34-befc358b11259578f2c5424eea160de29d01c369",
+  "solcVersion": "0.8.34",
+  "solcLongVersion": "0.8.34+commit.80d5c536",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.17.0"
+  },
+  "userSourceNameMap": {
+    "contracts/TaskEscrow.sol": "project/contracts/TaskEscrow.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "osaka",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/TaskEscrow.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.27;\r\n\r\n/**\r\n * @title TaskEscrow\r\n * @notice Escrows USDC bounties for Taskbit tasks on Arc.\r\n *\r\n * Lifecycle:\r\n *   1. Creator registers task: createTask(taskId, bounty) [or with initial worker]\r\n *   2. Creator funds escrow:  fundTask(taskId)\r\n *   3. Creator assigns worker: assignWorker(taskId, worker)\r\n *   4. Work approved:         releasePayment(taskId) → worker receives USDC\r\n *      OR\r\n *      Task refunded:         refundTask(taskId)     → creator receives USDC\r\n */\r\ninterface IERC20 {\r\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\r\n    function transfer(address to, uint256 amount) external returns (bool);\r\n    function balanceOf(address account) external view returns (uint256);\r\n}\r\n\r\ncontract TaskEscrow {\r\n    // ── Types ────────────────────────────────────────────────\r\n\r\n    struct Task {\r\n        address creator;\r\n        address worker;\r\n        uint256 bounty;\r\n        uint256 expiryTimestamp;\r\n        bool funded;\r\n        bool completed;\r\n        bool workSubmitted;\r\n    }\r\n\r\n    // ── State ────────────────────────────────────────────────\r\n\r\n    IERC20 public immutable usdc;\r\n    address public owner;\r\n    mapping(uint256 => Task) public tasks;\r\n\r\n    // ── Events ───────────────────────────────────────────────\r\n\r\n    event TaskCreated(uint256 indexed taskId, address indexed creator, address worker, uint256 bounty, uint256 expiryTimestamp);\r\n    event TaskFunded(uint256 indexed taskId, address indexed creator, uint256 amount);\r\n    event WorkerAssigned(uint256 indexed taskId, address indexed worker);\r\n    event WorkSubmitted(uint256 indexed taskId, address indexed worker);\r\n    event PaymentReleased(uint256 indexed taskId, address indexed worker, uint256 amount);\r\n    event TaskRefunded(uint256 indexed taskId, address indexed creator, uint256 amount);\r\n\r\n    // ── Errors ───────────────────────────────────────────────\r\n\r\n    error OnlyCreator();\r\n    error TaskAlreadyExists();\r\n    error TaskNotFound();\r\n    error AlreadyFunded();\r\n    error NotFunded();\r\n    error AlreadyCompleted();\r\n    error InvalidBounty();\r\n    error InvalidWorker();\r\n    error WorkerNotAssigned();\r\n    error TransferFailed();\r\n    error TaskExpired();\r\n    error TaskNotExpired();\r\n    error WorkAlreadySubmitted();\r\n\r\n    // ── Modifiers ────────────────────────────────────────────\r\n\r\n    modifier onlyCreator(uint256 taskId) {\r\n        if (tasks[taskId].creator == address(0)) revert TaskNotFound();\r\n        if (tasks[taskId].creator != msg.sender) revert OnlyCreator();\r\n        _;\r\n    }\r\n\r\n    // ── Constructor ──────────────────────────────────────────\r\n\r\n    /**\r\n     * @param _usdc Address of the USDC token contract on Arc.\r\n     */\r\n    constructor(address _usdc) {\r\n        usdc = IERC20(_usdc);\r\n        owner = msg.sender;\r\n    }\r\n\r\n    // ── Core Functions ───────────────────────────────────────\r\n\r\n    /**\r\n     * @notice Register a new task without an initial worker.\r\n     * @param taskId  Off-chain task ID (from database).\r\n     * @param bounty  Bounty amount in USDC (6-decimal token units).\r\n     * @param expiryTimestamp Timestamp after which the task expires and can be refunded.\r\n     */\r\n    function createTask(uint256 taskId, uint256 bounty, uint256 expiryTimestamp) external {\r\n        _createTask(taskId, address(0), bounty, expiryTimestamp);\r\n    }\r\n\r\n    /**\r\n     * @notice Register a new task with an initial worker (overloaded).\r\n     * @param taskId  Off-chain task ID.\r\n     * @param worker  Wallet address of the assigned worker (can be address(0)).\r\n     * @param bounty  Bounty amount in USDC (6-decimal token units).\r\n     * @param expiryTimestamp Timestamp after which the task expires and can be refunded.\r\n     */\r\n    function createTask(uint256 taskId, address worker, uint256 bounty, uint256 expiryTimestamp) external {\r\n        if (worker == msg.sender) revert InvalidWorker();\r\n        _createTask(taskId, worker, bounty, expiryTimestamp);\r\n    }\r\n\r\n    function _createTask(uint256 taskId, address worker, uint256 bounty, uint256 expiryTimestamp) internal {\r\n        if (tasks[taskId].creator != address(0)) revert TaskAlreadyExists();\r\n        if (bounty == 0) revert InvalidBounty();\r\n\r\n        tasks[taskId] = Task({\r\n            creator: msg.sender,\r\n            worker: worker,\r\n            bounty: bounty,\r\n            expiryTimestamp: expiryTimestamp,\r\n            funded: true,\r\n            completed: false,\r\n            workSubmitted: false\r\n        });\r\n\r\n        emit TaskCreated(taskId, msg.sender, worker, bounty, expiryTimestamp);\r\n\r\n        bool success = usdc.transferFrom(msg.sender, address(this), bounty);\r\n        if (!success) revert TransferFailed();\r\n\r\n        emit TaskFunded(taskId, msg.sender, bounty);\r\n    }\r\n\r\n    /**\r\n     * @notice Assign or update the assigned worker for a task.\r\n     * @param taskId  The task to assign the worker to.\r\n     * @param worker  The worker's wallet address.\r\n     */\r\n    function assignWorker(uint256 taskId, address worker) external onlyCreator(taskId) {\r\n        Task storage task = tasks[taskId];\r\n        if (task.completed) revert AlreadyCompleted();\r\n        if (worker == address(0) || worker == msg.sender) revert InvalidWorker();\r\n\r\n        task.worker = worker;\r\n\r\n        emit WorkerAssigned(taskId, worker);\r\n    }\r\n\r\n    /**\r\n     * @notice Worker submits work on-chain to prevent refund.\r\n     * @param taskId  The task to submit work for.\r\n     */\r\n    function submitWork(uint256 taskId) external {\r\n        Task storage task = tasks[taskId];\r\n        if (task.creator == address(0)) revert TaskNotFound();\r\n        if (task.completed) revert AlreadyCompleted();\r\n        if (task.workSubmitted) revert WorkAlreadySubmitted();\r\n        if (block.timestamp > task.expiryTimestamp) revert TaskExpired();\r\n\r\n        if (task.worker == address(0)) {\r\n            task.worker = msg.sender;\r\n            emit WorkerAssigned(taskId, msg.sender);\r\n        } else if (task.worker != msg.sender) {\r\n            revert InvalidWorker();\r\n        }\r\n\r\n        task.workSubmitted = true;\r\n        emit WorkSubmitted(taskId, msg.sender);\r\n    }\r\n\r\n    /**\r\n     * @notice Release escrowed USDC to the worker (task approved).\r\n     * @param taskId  The task whose bounty should be released.\r\n     */\r\n    function releasePayment(uint256 taskId) external onlyCreator(taskId) {\r\n        Task storage task = tasks[taskId];\r\n        if (!task.funded) revert NotFunded();\r\n        if (task.completed) revert AlreadyCompleted();\r\n        if (task.worker == address(0)) revert WorkerNotAssigned();\r\n\r\n        task.completed = true;\r\n\r\n        bool success = usdc.transfer(task.worker, task.bounty);\r\n        if (!success) revert TransferFailed();\r\n\r\n        emit PaymentReleased(taskId, task.worker, task.bounty);\r\n    }\r\n\r\n    /**\r\n     * @notice Refund escrowed USDC back to the creator (task cancelled/rejected).\r\n     * @param taskId  The task whose bounty should be refunded.\r\n     */\r\n    function refundTask(uint256 taskId) external {\r\n        Task storage task = tasks[taskId];\r\n        if (task.creator == address(0)) revert TaskNotFound();\r\n        if (!task.funded) revert NotFunded();\r\n        if (task.completed) revert AlreadyCompleted();\r\n        if (block.timestamp < task.expiryTimestamp) revert TaskNotExpired();\r\n        if (task.workSubmitted) revert WorkAlreadySubmitted();\r\n\r\n        task.completed = true;\r\n\r\n        bool success = usdc.transfer(task.creator, task.bounty);\r\n        if (!success) revert TransferFailed();\r\n\r\n        emit TaskRefunded(taskId, task.creator, task.bounty);\r\n    }\r\n\r\n    /**\r\n     * @notice View a task's details.\r\n     * @param taskId  The task to query.\r\n     * @return The Task struct.\r\n     */\r\n    function getTask(uint256 taskId) external view returns (Task memory) {\r\n        if (tasks[taskId].creator == address(0)) revert TaskNotFound();\r\n        return tasks[taskId];\r\n    }\r\n}\r\n"
+      }
+    }
+  }
+}

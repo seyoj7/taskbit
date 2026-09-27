@@ -18,11 +18,26 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
 
   const renderStatusBadge = () => {
     const s = String(status).toLowerCase();
-    if (s === 'open') {
+    if (s === 'posted') {
+      return (
+        <span className={styles.idBadge}>
+          Pending Funding
+        </span>
+      );
+    }
+    if (s === 'funded') {
       return (
         <span className={styles.statusOpen}>
           <span className={styles.dotPulse} />
           Open
+        </span>
+      );
+    }
+    if (s === 'claimed') {
+      return (
+        <span className={styles.statusClaimed}>
+          <span className={styles.dot} />
+          Claimed
         </span>
       );
     }
@@ -34,18 +49,32 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
         </span>
       );
     }
-    if (s === 'in progress' || s === 'claimed') {
+    if (s === 'rejected') {
       return (
-        <span className={styles.statusClaimed}>
+        <span className={styles.statusReview}>
           <span className={styles.dot} />
-          Claimed
+          Rejected
         </span>
       );
     }
-    if (s === 'completed' || s === 'approved') {
+    if (s === 'approved' || s === 'paid') {
       return (
         <span className={styles.statusPaid}>
           ✓ Paid
+        </span>
+      );
+    }
+    if (s === 'refunded') {
+      return (
+        <span className={styles.idBadge}>
+          Refunded
+        </span>
+      );
+    }
+    if (s === 'archived') {
+      return (
+        <span className={styles.idBadge}>
+          Archived
         </span>
       );
     }

@@ -26,8 +26,10 @@ contract TaskEscrow {
         address creator;
         address worker;
         uint256 bounty;
+        uint256 expiryTimestamp;
         bool funded;
         bool completed;
+        bool workSubmitted;
     }
 
     // ── State ────────────────────────────────────────────────
@@ -38,9 +40,10 @@ contract TaskEscrow {
 
     // ── Events ───────────────────────────────────────────────
 
-    event TaskCreated(uint256 indexed taskId, address indexed creator, address worker, uint256 bounty);
+    event TaskCreated(uint256 indexed taskId, address indexed creator, address worker, uint256 bounty, uint256 expiryTimestamp);
     event TaskFunded(uint256 indexed taskId, address indexed creator, uint256 amount);
     event WorkerAssigned(uint256 indexed taskId, address indexed worker);
+    event WorkSubmitted(uint256 indexed taskId, address indexed worker);
     event PaymentReleased(uint256 indexed taskId, address indexed worker, uint256 amount);
     event TaskRefunded(uint256 indexed taskId, address indexed creator, uint256 amount);
 
@@ -56,6 +59,9 @@ contract TaskEscrow {
     error InvalidWorker();
     error WorkerNotAssigned();
     error TransferFailed();
+    error TaskExpired();
+    error TaskNotExpired();
+    error WorkAlreadySubmitted();
 
     // ── Modifiers ────────────────────────────────────────────
 
@@ -81,9 +87,10 @@ contract TaskEscrow {
      * @notice Register a new task without an initial worker.
      * @param taskId  Off-chain task ID (from database).
      * @param bounty  Bounty amount in USDC (6-decimal token units).
+     * @param expiryTimestamp Timestamp after which the task expires and can be refunded.
      */
-    function createTask(uint256 taskId, uint256 bounty) external {
-        _createTask(taskId, address(0), bounty);
+    function createTask(uint256 taskId, uint256 bounty, uint256 expiryTimestamp) external {
+        _createTask(taskId, address(0), bounty, expiryTimestamp);
     }
 
     /**
@@ -91,13 +98,14 @@ contract TaskEscrow {
      * @param taskId  Off-chain task ID.
      * @param worker  Wallet address of the assigned worker (can be address(0)).
      * @param bounty  Bounty amount in USDC (6-decimal token units).
+     * @param expiryTimestamp Timestamp after which the task expires and can be refunded.
      */
-    function createTask(uint256 taskId, address worker, uint256 bounty) external {
+    function createTask(uint256 taskId, address worker, uint256 bounty, uint256 expiryTimestamp) external {
         if (worker == msg.sender) revert InvalidWorker();
-        _createTask(taskId, worker, bounty);
+        _createTask(taskId, worker, bounty, expiryTimestamp);
     }
 
-    function _createTask(uint256 taskId, address worker, uint256 bounty) internal {
+    function _createTask(uint256 taskId, address worker, uint256 bounty, uint256 expiryTimestamp) internal {
         if (tasks[taskId].creator != address(0)) revert TaskAlreadyExists();
         if (bounty == 0) revert InvalidBounty();
 
@@ -105,29 +113,18 @@ contract TaskEscrow {
             creator: msg.sender,
             worker: worker,
             bounty: bounty,
-            funded: false,
-            completed: false
+            expiryTimestamp: expiryTimestamp,
+            funded: true,
+            completed: false,
+            workSubmitted: false
         });
 
-        emit TaskCreated(taskId, msg.sender, worker, bounty);
-    }
+        emit TaskCreated(taskId, msg.sender, worker, bounty, expiryTimestamp);
 
-    /**
-     * @notice Fund the task by transferring USDC from creator → this contract.
-     * @dev    Creator must call usdc.approve(address(this), bounty) first.
-     * @param taskId  The task to fund.
-     */
-    function fundTask(uint256 taskId) external onlyCreator(taskId) {
-        Task storage task = tasks[taskId];
-        if (task.funded) revert AlreadyFunded();
-        if (task.completed) revert AlreadyCompleted();
-
-        task.funded = true;
-
-        bool success = usdc.transferFrom(msg.sender, address(this), task.bounty);
+        bool success = usdc.transferFrom(msg.sender, address(this), bounty);
         if (!success) revert TransferFailed();
 
-        emit TaskFunded(taskId, msg.sender, task.bounty);
+        emit TaskFunded(taskId, msg.sender, bounty);
     }
 
     /**
@@ -143,6 +140,28 @@ contract TaskEscrow {
         task.worker = worker;
 
         emit WorkerAssigned(taskId, worker);
+    }
+
+    /**
+     * @notice Worker submits work on-chain to prevent refund.
+     * @param taskId  The task to submit work for.
+     */
+    function submitWork(uint256 taskId) external {
+        Task storage task = tasks[taskId];
+        if (task.creator == address(0)) revert TaskNotFound();
+        if (task.completed) revert AlreadyCompleted();
+        if (task.workSubmitted) revert WorkAlreadySubmitted();
+        if (block.timestamp > task.expiryTimestamp) revert TaskExpired();
+
+        if (task.worker == address(0)) {
+            task.worker = msg.sender;
+            emit WorkerAssigned(taskId, msg.sender);
+        } else if (task.worker != msg.sender) {
+            revert InvalidWorker();
+        }
+
+        task.workSubmitted = true;
+        emit WorkSubmitted(taskId, msg.sender);
     }
 
     /**
@@ -167,10 +186,13 @@ contract TaskEscrow {
      * @notice Refund escrowed USDC back to the creator (task cancelled/rejected).
      * @param taskId  The task whose bounty should be refunded.
      */
-    function refundTask(uint256 taskId) external onlyCreator(taskId) {
+    function refundTask(uint256 taskId) external {
         Task storage task = tasks[taskId];
+        if (task.creator == address(0)) revert TaskNotFound();
         if (!task.funded) revert NotFunded();
         if (task.completed) revert AlreadyCompleted();
+        if (block.timestamp < task.expiryTimestamp) revert TaskNotExpired();
+        if (task.workSubmitted) revert WorkAlreadySubmitted();
 
         task.completed = true;
 

@@ -11,19 +11,68 @@ function getApiBaseUrl(): string {
 const API_URL = getApiBaseUrl();
 const TOKEN_KEY = 'taskbit_auth_token';
 
+/**
+ * Task lifecycle statuses:
+ *   posted → funded → claimed → submitted → approved/rejected → paid/refunded → archived
+ */
+export type TaskStatus =
+  | 'posted'
+  | 'funded'
+  | 'claimed'
+  | 'submitted'
+  | 'approved'
+  | 'rejected'
+  | 'paid'
+  | 'refunded'
+  | 'archived';
+
 export interface Task {
   id: number;
   title: string;
   description: string;
   bounty_usdc: number;
-  status: 'open' | 'claimed' | 'submitted' | 'approved' | 'rejected';
+  status: TaskStatus;
   poster_id: number;
   worker_id: number | null;
   proof: string | null;
+  rejection_reason: string | null;
   tx_hash: string | null;
-  fund_tx_hash?: string | null;
+  fund_tx_hash: string | null;
+  refund_tx_hash: string | null;
+  expires_at: string;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * The backend stores naive datetimes representing UTC.
+ * Pydantic serializes them without a 'Z' suffix, so JS would
+ * misinterpret them as local time. This helper ensures UTC.
+ */
+export function parseUtcDate(dateStr: string): Date {
+  if (!dateStr) return new Date(dateStr);
+  // If already has timezone info (Z or offset), parse as-is
+  if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateStr)) {
+    return new Date(dateStr);
+  }
+  // Naive datetime from API → treat as UTC
+  return new Date(dateStr + 'Z');
+}
+
+/** Normalize all datetime strings on a Task so they're UTC-suffixed. */
+function ensureUtcSuffix(dateStr: string): string {
+  if (!dateStr) return dateStr;
+  if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateStr)) return dateStr;
+  return dateStr + 'Z';
+}
+
+function normalizeTaskDates(task: Task): Task {
+  return {
+    ...task,
+    expires_at: ensureUtcSuffix(task.expires_at),
+    created_at: ensureUtcSuffix(task.created_at),
+    updated_at: ensureUtcSuffix(task.updated_at),
+  };
 }
 
 export interface User {
@@ -117,7 +166,8 @@ export async function fetchTasks(status?: string): Promise<Task[]> {
   if (!res.ok) {
     throw new Error('Failed to fetch tasks');
   }
-  return res.json();
+  const tasks: Task[] = await res.json();
+  return tasks.map(normalizeTaskDates);
 }
 
 export async function createTask(payload: {
@@ -126,6 +176,7 @@ export async function createTask(payload: {
   bounty_usdc: number;
   poster_wallet_address: string;
   fund_tx_hash?: string;
+  expires_at: string;
 }): Promise<Task> {
   const res = await fetch(`${API_URL}/tasks/`, {
     method: 'POST',
@@ -136,7 +187,7 @@ export async function createTask(payload: {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || 'Failed to create task');
   }
-  return res.json();
+  return res.json().then(normalizeTaskDates);
 }
 
 export async function claimTask(taskId: number, wallet_address: string): Promise<Task> {
@@ -149,7 +200,7 @@ export async function claimTask(taskId: number, wallet_address: string): Promise
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || 'Failed to claim task');
   }
-  return res.json();
+  return res.json().then(normalizeTaskDates);
 }
 
 export async function fetchTaskById(taskId: number): Promise<Task> {
@@ -157,7 +208,7 @@ export async function fetchTaskById(taskId: number): Promise<Task> {
   if (!res.ok) {
     throw new Error('Failed to fetch task');
   }
-  return res.json();
+  return res.json().then(normalizeTaskDates);
 }
 
 export async function fetchTaskEscrow(taskId: number): Promise<{
@@ -166,6 +217,7 @@ export async function fetchTaskEscrow(taskId: number): Promise<{
   bounty_usdc: number;
   tx_hash: string | null;
   fund_tx_hash: string | null;
+  refund_tx_hash: string | null;
   onchain: {
     exists: boolean;
     creator?: string;
@@ -198,7 +250,7 @@ export async function recordTaskFunding(
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || 'Failed to record task funding');
   }
-  return res.json();
+  return res.json().then(normalizeTaskDates);
 }
 
 export async function submitTaskWork(taskId: number, wallet_address: string, proof: string): Promise<Task> {
@@ -215,10 +267,10 @@ export async function submitTaskWork(taskId: number, wallet_address: string, pro
     } catch {}
     throw new Error(errMsg);
   }
-  return res.json();
+  return res.json().then(normalizeTaskDates);
 }
 
-export async function approveTask(taskId: number, wallet_address: string, tx_hash?: string): Promise<Task> {
+export async function approveTask(taskId: number, wallet_address: string, tx_hash: string): Promise<Task> {
   const res = await fetch(`${API_URL}/tasks/${taskId}/approve`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
@@ -228,38 +280,39 @@ export async function approveTask(taskId: number, wallet_address: string, tx_has
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || 'Failed to approve task');
   }
-  return res.json();
+  return res.json().then(normalizeTaskDates);
 }
 
 export async function rejectTask(
   taskId: number,
   wallet_address: string,
-  refund_tx_hash?: string
+  reason?: string
 ): Promise<Task> {
   const res = await fetch(`${API_URL}/tasks/${taskId}/reject`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ wallet_address, reason }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to reject task');
+  }
+  return res.json().then(normalizeTaskDates);
+}
+
+export async function refundExpiredTask(
+  taskId: number,
+  wallet_address: string,
+  refund_tx_hash: string
+): Promise<Task> {
+  const res = await fetch(`${API_URL}/tasks/${taskId}/refund`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify({ wallet_address, refund_tx_hash }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || 'Failed to reject task');
+    throw new Error(err.detail || 'Failed to refund expired task');
   }
-  return res.json();
-}
-
-export async function deleteTask(taskId: number, wallet_address: string): Promise<{ message: string; id: number }> {
-  const res = await fetch(`${API_URL}/tasks/${taskId}?wallet_address=${encodeURIComponent(wallet_address)}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    let errMsg = 'Failed to delete task';
-    try {
-      const errData = await res.json();
-      if (errData.detail) errMsg = errData.detail;
-    } catch {}
-    throw new Error(errMsg);
-  }
-  return res.json();
+  return res.json().then(normalizeTaskDates);
 }

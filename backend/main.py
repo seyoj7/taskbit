@@ -21,13 +21,12 @@ from eth_account.messages import encode_defunct
 from web3 import Web3
 import uvicorn
 
-from db import engine, get_db, init_db, Base, User, Task
+from db import engine, get_db, init_db, Base, User, Task, TASK_STATUSES
 from escrow import (
     check_escrow_contract_health,
     get_onchain_escrow_task,
     verify_payment_release_tx,
     verify_task_funded_tx,
-    verify_worker_assigned_tx,
     verify_task_refunded_tx,
     get_web3_client,
 )
@@ -132,6 +131,7 @@ class TaskCreate(BaseModel):
     )
     poster_wallet_address: str = Field(..., min_length=42, max_length=42)
     fund_tx_hash: Optional[str] = Field(None, max_length=66)
+    expires_at: datetime = Field(..., description="Task expiration timestamp")
 
     @field_validator("poster_wallet_address")
     @classmethod
@@ -155,8 +155,11 @@ class TaskResponse(BaseModel):
     poster_id: int
     worker_id: Optional[int]
     proof: Optional[str]
+    rejection_reason: Optional[str]
     tx_hash: Optional[str]
     fund_tx_hash: Optional[str]
+    refund_tx_hash: Optional[str]
+    expires_at: datetime
     created_at: datetime
     updated_at: datetime
 
@@ -198,12 +201,17 @@ class TaskFund(_WalletActionBase):
 
 
 class TaskApprove(_WalletActionBase):
-    tx_hash: Optional[str] = Field(None, max_length=66)
+    tx_hash: str = Field(..., min_length=66, max_length=66,
+                         description="On-chain releasePayment tx hash (required)")
 
 
 class TaskReject(_WalletActionBase):
     reason: Optional[str] = None
-    refund_tx_hash: Optional[str] = Field(None, max_length=66)
+
+
+class TaskRefund(_WalletActionBase):
+    refund_tx_hash: str = Field(..., min_length=66, max_length=66,
+                                description="On-chain refundTask tx hash (required)")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -391,11 +399,23 @@ def _get_user_by_wallet_or_404(wallet_address: str, db: Session) -> User:
     return user
 
 
-def _assert_status(task: Task, expected: str, action: str):
-    if task.status != expected:
+def _assert_status(task: Task, expected: str | list, action: str):
+    """Check task is in the expected status (or one of a list of statuses)."""
+    if isinstance(expected, str):
+        expected = [expected]
+    if task.status not in expected:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Cannot {action}: task status is '{task.status}', expected '{expected}'",
+            detail=f"Cannot {action}: task status is '{task.status}', expected {expected}",
+        )
+
+
+def _assert_not_archived(task: Task):
+    """Archived tasks are immutable."""
+    if task.status == "archived":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This task is archived and cannot be modified.",
         )
 
 
@@ -405,7 +425,7 @@ def _assert_status(task: Task, expected: str, action: str):
 
 init_db()
 
-app = FastAPI(title="Taskbit API", version="1.0.0")
+app = FastAPI(title="Taskbit API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -612,16 +632,20 @@ def create_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new task with a USDC bounty."""
+    """Create a new task. Status starts as 'posted' until funded on-chain."""
     assert_caller_permission(payload.poster_wallet_address, current_user)
     poster = _get_user_by_wallet_or_404(payload.poster_wallet_address, db)
 
+    import random
     task = Task(
+        id=random.randint(100000, 2147483647),
         title=payload.title,
         description=payload.description,
         bounty_usdc=payload.bounty_usdc,
         poster_id=poster.id,
+        status="posted",
         fund_tx_hash=payload.fund_tx_hash,
+        expires_at=payload.expires_at.astimezone(timezone.utc).replace(tzinfo=None) if payload.expires_at.tzinfo else payload.expires_at,
     )
     db.add(task)
     db.commit()
@@ -658,11 +682,19 @@ def get_task_escrow(task_id: int, db: Session = Depends(get_db)):
         "bounty_usdc": float(task.bounty_usdc),
         "tx_hash": task.tx_hash,
         "fund_tx_hash": task.fund_tx_hash,
+        "refund_tx_hash": task.refund_tx_hash,
         "onchain": onchain,
     }
 
 
-# ── Lifecycle: fund → claim → submit → approve / reject ───────
+# ═══════════════════════════════════════════════════════════════
+#  Task Lifecycle:
+#    POSTED → FUNDED → CLAIMED → SUBMITTED → APPROVED → PAID → ARCHIVED
+#                                     ↓
+#                                 REJECTED → (resubmit) → SUBMITTED
+#
+#    FUNDED → (expired, no submissions) → REFUNDED → ARCHIVED
+# ═══════════════════════════════════════════════════════════════
 
 @app.patch("/tasks/{task_id}/fund", response_model=TaskResponse)
 def record_task_funding(
@@ -671,11 +703,15 @@ def record_task_funding(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Records and verifies on-chain task funding."""
+    """
+    Records and verifies on-chain task funding.
+    Transitions: posted → funded
+    """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
-    poster = _get_user_by_wallet_or_404(payload.wallet_address, db)
+    _assert_status(task, "posted", "fund")
 
+    poster = _get_user_by_wallet_or_404(payload.wallet_address, db)
     if poster.id != task.poster_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -695,6 +731,7 @@ def record_task_funding(
         )
 
     task.fund_tx_hash = payload.fund_tx_hash
+    task.status = "funded"
     db.commit()
     db.refresh(task)
     return task
@@ -707,13 +744,23 @@ def claim_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Worker claims an open task."""
+    """
+    Worker claims a funded task.
+    Transitions: funded → claimed
+    """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
-    _assert_status(task, "open", "claim")
+    _assert_status(task, "funded", "claim")
+
+    # Check expiry
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if task.expires_at and task.expires_at < now:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot claim: task has expired.",
+        )
 
     worker = _get_user_by_wallet_or_404(payload.wallet_address, db)
-
     if worker.id == task.poster_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -734,17 +781,28 @@ def submit_proof(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Worker submits proof of completed work with GitHub verification."""
+    """
+    Worker submits proof of completed work with GitHub verification.
+    Allows initial submission and resubmission after rejection.
+    Transitions: claimed → submitted, rejected → submitted
+    """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
-    _assert_status(task, "claimed", "submit proof")
+    _assert_status(task, ["claimed", "rejected"], "submit proof")
 
     worker = _get_user_by_wallet_or_404(payload.wallet_address, db)
-
     if worker.id != task.worker_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the assigned worker can submit proof",
+        )
+
+    # Check expiry
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if task.expires_at and task.expires_at < now:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot submit: task has expired.",
         )
 
     is_valid, reason = verify_github_link(payload.proof)
@@ -755,6 +813,7 @@ def submit_proof(
         )
 
     task.proof = payload.proof
+    task.rejection_reason = None  # Clear previous rejection reason on resubmission
     task.status = "submitted"
     db.commit()
     db.refresh(task)
@@ -768,36 +827,44 @@ def approve_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Poster approves submitted work and releases escrow."""
+    """
+    Poster approves submitted work and records on-chain payment release.
+    Verifies the releasePayment tx on-chain before updating state.
+    Transitions: submitted → approved → paid → archived (all in one step)
+    """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
     _assert_status(task, "submitted", "approve")
 
     poster = _get_user_by_wallet_or_404(payload.wallet_address, db)
-
     if poster.id != task.poster_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the task poster can approve work",
         )
 
-    if payload.tx_hash:
-        worker = db.query(User).filter(User.id == task.worker_id).first()
-        worker_wallet = worker.wallet_address if worker else None
+    # Verify on-chain payment release
+    worker = db.query(User).filter(User.id == task.worker_id).first()
+    worker_wallet = worker.wallet_address if worker else None
 
-        verification = verify_payment_release_tx(
-            tx_hash=payload.tx_hash,
-            task_id=task.id,
-            expected_worker=worker_wallet,
+    verification = verify_payment_release_tx(
+        tx_hash=payload.tx_hash,
+        task_id=task.id,
+        expected_worker=worker_wallet,
+    )
+    if not verification.get("verified"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"On-chain payment verification failed: {verification.get('error')}",
         )
-        if not verification.get("verified"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Escrow on-chain verification failed: {verification.get('error')}",
-            )
-        task.tx_hash = payload.tx_hash
 
-    task.status = "approved"
+    task.tx_hash = payload.tx_hash
+    task.status = "paid"
+    db.commit()
+    db.refresh(task)
+
+    # Auto-archive after payment
+    task.status = "archived"
     db.commit()
     db.refresh(task)
     return task
@@ -810,79 +877,83 @@ def reject_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Poster rejects submitted work or refunds task."""
+    """
+    Poster rejects submitted work. Worker keeps assignment and can resubmit.
+    Rejection does NOT refund the poster — escrow stays locked.
+    Transitions: submitted → rejected
+    """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
     _assert_status(task, "submitted", "reject")
 
     poster = _get_user_by_wallet_or_404(payload.wallet_address, db)
-
     if poster.id != task.poster_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the task poster can reject work",
         )
 
-    if payload.refund_tx_hash:
-        verification = verify_task_refunded_tx(
-            tx_hash=payload.refund_tx_hash,
-            task_id=task.id,
-            expected_creator=poster.wallet_address,
-        )
-        if not verification.get("verified"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"On-chain refund verification failed: {verification.get('error')}",
-            )
-        task.tx_hash = payload.refund_tx_hash
-
     task.status = "rejected"
-    task.worker_id = None
-    task.proof = None
+    task.rejection_reason = payload.reason
+    # Worker stays assigned — they can resubmit
     db.commit()
     db.refresh(task)
     return task
 
 
-@app.delete("/tasks/{task_id}", status_code=status.HTTP_200_OK)
-def delete_task(
+@app.patch("/tasks/{task_id}/refund", response_model=TaskResponse)
+def refund_expired_task(
     task_id: int,
-    wallet_address: str = Query(..., description="Wallet address of the task poster"),
+    payload: TaskRefund,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a task posted by the user."""
-    assert_caller_permission(wallet_address, current_user)
+    """
+    Refund an expired, funded task that has NO submissions.
+    Verifies the on-chain refundTask tx before updating state.
+    Transitions: funded → refunded → archived
+
+    The smart contract enforces:
+    - Task must be past expiry
+    - No work has been submitted on-chain
+    """
+    assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
-    poster = _get_user_by_wallet_or_404(wallet_address.lower(), db)
+    _assert_status(task, "funded", "refund")
 
-    if poster.id != task.poster_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the task poster can delete this task",
-        )
-
-    if task.status in ("claimed", "submitted"):
+    # Double-check: task must be expired
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if task.expires_at and task.expires_at > now:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Cannot delete task in '{task.status}' status. A worker is currently assigned.",
+            detail="Cannot refund: task has not yet expired.",
         )
 
-    if task.status == "approved":
+    poster = db.query(User).filter(User.id == task.poster_id).first()
+    if not poster:
+        raise HTTPException(status_code=404, detail="Poster not found")
+
+    verification = verify_task_refunded_tx(
+        tx_hash=payload.refund_tx_hash,
+        task_id=task.id,
+        expected_creator=poster.wallet_address,
+    )
+    if not verification.get("verified"):
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Cannot delete an already approved/completed task.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"On-chain refund verification failed: {verification.get('error')}",
         )
 
-    if task.fund_tx_hash:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Cannot delete a funded task. Use reject/refund to return the on-chain escrow first.",
-        )
-
-    db.delete(task)
+    task.refund_tx_hash = payload.refund_tx_hash
+    task.status = "refunded"
     db.commit()
-    return {"message": f"Task #{task_id} successfully deleted", "id": task_id}
+    db.refresh(task)
+
+    # Auto-archive after refund
+    task.status = "archived"
+    db.commit()
+    db.refresh(task)
+    return task
 
 
 if __name__ == "__main__":

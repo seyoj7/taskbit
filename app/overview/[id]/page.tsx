@@ -16,7 +16,7 @@ import {
   submitTaskWork,
   approveTask,
   rejectTask,
-  deleteTask,
+  refundExpiredTask,
   Task,
   User,
 } from '../../components/api';
@@ -30,14 +30,47 @@ const USDC_ABI = [
 ];
 
 const TASK_ESCROW_ABI = [
-  "function createTask(uint256 taskId, uint256 bounty) external",
-  "function createTask(uint256 taskId, address worker, uint256 bounty) external",
+  "function createTask(uint256 taskId, uint256 bounty, uint256 expiryTimestamp) external",
+  "function createTask(uint256 taskId, address worker, uint256 bounty, uint256 expiryTimestamp) external",
   "function fundTask(uint256 taskId) external",
   "function assignWorker(uint256 taskId, address worker) external",
+  "function submitWork(uint256 taskId) external",
   "function releasePayment(uint256 taskId) external",
   "function refundTask(uint256 taskId) external",
-  "function getTask(uint256 taskId) external view returns (tuple(address creator, address worker, uint256 bounty, bool funded, bool completed))"
+  "function getTask(uint256 taskId) external view returns (tuple(address creator, address worker, uint256 bounty, uint256 expiryTimestamp, bool funded, bool completed, bool workSubmitted))"
 ];
+
+// ── Status display helpers ──────────────────────────────────────
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    posted: 'Posted',
+    funded: 'Open',
+    claimed: 'Claimed',
+    submitted: 'Reviewing',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    paid: 'Paid',
+    refunded: 'Refunded',
+    archived: 'Archived',
+  };
+  return labels[status] || status;
+}
+
+function getStatusBadgeClass(status: string): string {
+  switch (status) {
+    case 'posted': return 'antares-badge-surface';
+    case 'funded': return 'antares-badge-lime';
+    case 'claimed': return 'antares-badge-surface';
+    case 'submitted': return 'antares-badge-surface';
+    case 'approved':
+    case 'paid': return 'antares-badge-up';
+    case 'rejected': return 'antares-badge-down';
+    case 'refunded': return 'antares-badge-surface';
+    case 'archived': return 'antares-badge-surface';
+    default: return 'antares-badge-surface';
+  }
+}
 
 export default function TaskDetail({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -49,8 +82,18 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [proof, setProof] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txStatus, setTxStatus] = useState<string | null>(null);
+  const [copiedTx, setCopiedTx] = useState<string | null>(null);
+
+  const handleCopyTx = (txHash: string, key: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(txHash);
+      setCopiedTx(key);
+      setTimeout(() => setCopiedTx(null), 2000);
+    }
+  };
 
   const loadTask = async () => {
     try {
@@ -85,6 +128,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     loadTask();
   }, [unwrappedParams.id]);
 
+  // ── Lifecycle handlers ──────────────────────────────────────
+
   const handleClaim = async () => {
     if (!account) return connectWallet();
     setIsSubmitting(true);
@@ -103,6 +148,21 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     if (!account) return connectWallet();
     setIsSubmitting(true);
     try {
+      if (onchainEscrow?.funded) {
+        if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
+        const provider = new ethers.BrowserProvider((window as any).ethereum);
+        const signer = await provider.getSigner();
+        const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
+        
+        try {
+          // Submit work on-chain to prevent creator refund
+          const submitTx = await escrow.submitWork(task!.id);
+          await submitTx.wait();
+        } catch (e: any) {
+          console.warn("Could not submit on-chain (possibly already submitted or expired): ", e);
+        }
+      }
+
       await submitTaskWork(task!.id, account, proof);
       await loadTask();
     } catch (err: any) {
@@ -153,11 +213,15 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
         alreadyCreated = false;
       }
 
+      let finalTxHash = '';
       if (!alreadyCreated) {
-        setTxStatus("Registering task on Arc Escrow...");
+        setTxStatus("Registering and Funding task on Arc Escrow...");
         try {
-          const createTx = await escrow["createTask(uint256,uint256)"](task.id, bountyUnits);
-          await createTx.wait();
+          const expiryTimestamp = Math.floor(new Date(task.expires_at).getTime() / 1000);
+          const createTx = await escrow["createTask(uint256,uint256,uint256)"](task.id, bountyUnits, expiryTimestamp);
+          setTxStatus("Waiting for transaction confirmation...");
+          const receipt = await createTx.wait();
+          finalTxHash = receipt?.hash || createTx.hash;
         } catch (createErr: any) {
           if (createErr.code === 'CALL_EXCEPTION' || createErr.message?.includes('missing revert data')) {
             throw new Error(
@@ -168,13 +232,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
         }
       }
 
-      setTxStatus("Funding Escrow with USDC...");
-      const fundTx = await escrow.fundTask(task.id);
-      setTxStatus("Waiting for funding transaction confirmation...");
-      const receipt = await fundTx.wait();
-
-      setTxStatus("Updating backend status...");
-      await recordTaskFunding(task.id, account, receipt.hash || fundTx.hash);
+      if (finalTxHash) {
+        setTxStatus("Updating backend status...");
+        await recordTaskFunding(task.id, account, finalTxHash);
+      }
       await loadTask();
     } catch (err: any) {
       console.error(err);
@@ -185,7 +246,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const handleApproveAndEscrow = async () => {
+  const handleApproveAndPay = async () => {
     if (!account) return connectWallet();
     if (!task?.worker_id) return alert("No worker assigned.");
 
@@ -207,7 +268,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
       const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
 
-      // 1. Check if task exists and is funded on-chain
+      // 1. Ensure task exists and is funded on-chain
       let onchainTask: any = null;
       try {
         onchainTask = await escrow.getTask(task.id);
@@ -224,17 +285,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
           await approveTx.wait();
         }
 
-        setTxStatus("Registering task in Escrow...");
-        const createTx = await escrow["createTask(uint256,uint256)"](task.id, bountyUnits);
+        setTxStatus("Registering and Funding task in Escrow...");
+        const expiryTimestamp = Math.floor(new Date(task.expires_at).getTime() / 1000);
+        const createTx = await escrow["createTask(uint256,uint256,uint256)"](task.id, bountyUnits, expiryTimestamp);
         await createTx.wait();
-
-        setTxStatus("Funding Escrow...");
-        const fundTx = await escrow.fundTask(task.id);
-        await fundTx.wait();
-      } else if (!onchainTask.funded) {
-        setTxStatus("Funding Escrow...");
-        const fundTx = await escrow.fundTask(task.id);
-        await fundTx.wait();
       }
 
       // 2. Ensure worker is assigned on-chain
@@ -247,7 +301,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
         await assignTx.wait();
       }
 
-      // 3. Release payment
+      // 3. Release payment on-chain
       setTxStatus("Releasing payment to worker on-chain...");
       const releaseTx = await escrow.releasePayment(task.id);
       setTxStatus("Waiting for payment release confirmation...");
@@ -255,7 +309,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
       const txHash = receipt.hash || releaseTx.hash;
 
-      setTxStatus("Recording approved status in Taskbit...");
+      // 4. Record approval + payment in backend (auto-archives)
+      setTxStatus("Recording payment in Taskbit...");
       await approveTask(task.id, account, txHash);
       await loadTask();
     } catch (err: any) {
@@ -267,37 +322,48 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const handleRefund = async () => {
+  const handleReject = async () => {
     if (!account) return connectWallet();
-    if (!confirm("Are you sure you want to refund this task and return the USDC bounty to your wallet?")) return;
+    if (!confirm("Are you sure you want to reject this submission? The worker can still resubmit.")) return;
+
+    setIsSubmitting(true);
+    try {
+      await rejectTask(task!.id, account, rejectionReason || undefined);
+      await loadTask();
+    } catch (err: any) {
+      alert(err.message || "Failed to reject task");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRefundExpired = async () => {
+    if (!account) return connectWallet();
+    if (!confirm("Are you sure you want to refund this expired task and return the USDC bounty?")) return;
 
     setIsSubmitting(true);
     setTxStatus("Processing refund on Arc Testnet...");
 
     try {
-      let refundTxHash: string | undefined = undefined;
-
-      if (onchainEscrow?.funded && !onchainEscrow?.completed) {
-        if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
-        const provider = new ethers.BrowserProvider((window as any).ethereum);
-        const network = await provider.getNetwork();
-        if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
-          setTxStatus("Switching wallet to Arc Testnet (Chain ID 5042002)...");
-          const switched = await switchToArcTestnet();
-          if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Testnet (Chain ID 5042002).");
-        }
-        const signer = await provider.getSigner();
-        const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
-
-        setTxStatus("Requesting Escrow refund transaction in wallet...");
-        const refundTx = await escrow.refundTask(task!.id);
-        setTxStatus("Waiting for refund confirmation...");
-        const receipt = await refundTx.wait();
-        refundTxHash = receipt.hash || refundTx.hash;
+      if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const network = await provider.getNetwork();
+      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
+        setTxStatus("Switching wallet to Arc Testnet (Chain ID 5042002)...");
+        const switched = await switchToArcTestnet();
+        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Testnet (Chain ID 5042002).");
       }
+      const signer = await provider.getSigner();
+      const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
+
+      setTxStatus("Requesting Escrow refund transaction in wallet...");
+      const refundTx = await escrow.refundTask(task!.id);
+      setTxStatus("Waiting for refund confirmation...");
+      const receipt = await refundTx.wait();
+      const refundTxHash = receipt.hash || refundTx.hash;
 
       setTxStatus("Updating backend status...");
-      await rejectTask(task!.id, account, refundTxHash);
+      await refundExpiredTask(task!.id, account, refundTxHash);
       await loadTask();
     } catch (err: any) {
       console.error(err);
@@ -308,18 +374,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const handleDelete = async () => {
-    if (!account) return connectWallet();
-    if (!confirm("Are you sure you want to delete this task? This action cannot be undone.")) return;
-    setIsSubmitting(true);
-    try {
-      await deleteTask(task!.id, account);
-      router.push('/marketplace');
-    } catch (err: any) {
-      alert(err.message || "Failed to delete task");
-      setIsSubmitting(false);
-    }
-  };
+  // ── Loading & Error States ──────────────────────────────────
 
   if (loading) {
     return (
@@ -369,6 +424,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
   const isPoster = user?.id === task.poster_id;
   const isWorker = user?.id === task.worker_id;
+  const isExpired = task ? new Date(task.expires_at).getTime() < Date.now() : false;
+  const isTerminal = ['paid', 'refunded', 'archived'].includes(task.status);
 
   return (
     <>
@@ -406,18 +463,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </span>
 
                 <span
-                  className={`antares-badge ${
-                    task.status === 'open'
-                      ? 'antares-badge-lime'
-                      : task.status === 'approved'
-                      ? 'antares-badge-up'
-                      : task.status === 'rejected'
-                      ? 'antares-badge-down'
-                      : 'antares-badge-surface'
-                  }`}
+                  className={`antares-badge ${getStatusBadgeClass(task.status)}`}
                   style={{ textTransform: 'capitalize', fontSize: '13px', padding: '5px 12px' }}
                 >
-                  {task.status === 'submitted' ? 'Reviewing' : task.status}
+                  {getStatusLabel(task.status)}
                 </span>
               </div>
 
@@ -477,6 +526,14 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '2px' }}>ESCROW SECURITY</span>
                   <span style={{ fontWeight: 600, color: 'var(--accent)' }}>Arc Contract ✓</span>
                 </div>
+
+                <div>
+                  <span style={{ color: 'var(--muted)', fontSize: '11px', display: 'block', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '2px' }}>DEADLINE</span>
+                  <span style={{ fontWeight: 600, color: isExpired ? 'var(--down)' : 'var(--fg)' }}>
+                    {new Date(task.expires_at).toLocaleString(undefined, { hour12: true })}
+                    {isExpired && ' (Expired)'}
+                  </span>
+                </div>
               </div>
 
               <div style={{ marginTop: '20px' }}>
@@ -499,6 +556,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               </div>
 
+              {/* Submitted proof */}
               {task.proof && (
                 <div
                   className="animate-rise"
@@ -515,7 +573,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       SUBMITTED PROOF (GITHUB / PR)
                     </span>
                     <span className="antares-badge" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}>
-                      Ready for Review
+                      {task.status === 'submitted' ? 'Ready for Review' : task.status === 'rejected' ? 'Rejected' : 'Reviewed'}
                     </span>
                   </div>
                   <a
@@ -535,6 +593,28 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               )}
 
+              {/* Rejection reason */}
+              {task.rejection_reason && task.status === 'rejected' && (
+                <div
+                  className="animate-rise"
+                  style={{
+                    marginTop: '16px',
+                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                  }}
+                >
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--down)', marginBottom: '6px', letterSpacing: '0.05em' }}>
+                    REJECTION REASON
+                  </div>
+                  <p style={{ fontSize: '14px', color: 'var(--fg)', margin: 0, lineHeight: 1.5 }}>
+                    {task.rejection_reason}
+                  </p>
+                </div>
+              )}
+
+              {/* On-chain settlement info */}
               {task.tx_hash && (
                 <div
                   className="animate-rise"
@@ -546,13 +626,172 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                     border: '1px solid rgba(16, 185, 129, 0.2)',
                   }}
                 >
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--up)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--up)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     ESCROW FUNDS SETTLED ON-CHAIN
                   </div>
-                  <p style={{ fontSize: '13px', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
-                    Tx Hash: {task.tx_hash}
-                  </p>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '6px' }}>
+                    Payment Tx:
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: 'var(--fg)',
+                        wordBreak: 'break-all',
+                        overflowWrap: 'anywhere',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {task.tx_hash}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <button
+                        onClick={() => handleCopyTx(task.tx_hash!, 'payment')}
+                        title="Copy Tx Hash"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: copiedTx === 'payment' ? 'var(--up)' : 'var(--muted)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          borderRadius: '6px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {copiedTx === 'payment' ? (
+                          <>
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span style={{ fontWeight: 600 }}>Copied</span>
+                          </>
+                        ) : (
+                          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        )}
+                      </button>
+                      <a
+                        href={`https://explorer.testnet.arc.io/tx/${task.tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="View on Arc Explorer"
+                        style={{
+                          color: 'var(--muted)',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          textDecoration: 'none',
+                          transition: 'color 0.15s ease',
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {task.refund_tx_hash && (
+                <div
+                  className="animate-rise"
+                  style={{
+                    marginTop: '16px',
+                    padding: '20px',
+                    borderRadius: '16px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                  }}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--down)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    ESCROW REFUNDED ON-CHAIN
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '6px' }}>
+                    Refund Tx:
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: 'var(--fg)',
+                        wordBreak: 'break-all',
+                        overflowWrap: 'anywhere',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {task.refund_tx_hash}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <button
+                        onClick={() => handleCopyTx(task.refund_tx_hash!, 'refund')}
+                        title="Copy Tx Hash"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: copiedTx === 'refund' ? 'var(--up)' : 'var(--muted)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          borderRadius: '6px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {copiedTx === 'refund' ? (
+                          <>
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span style={{ fontWeight: 600 }}>Copied</span>
+                          </>
+                        ) : (
+                          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        )}
+                      </button>
+                      <a
+                        href={`https://explorer.testnet.arc.io/tx/${task.refund_tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="View on Arc Explorer"
+                        style={{
+                          color: 'var(--muted)',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          textDecoration: 'none',
+                          transition: 'color 0.15s ease',
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                      </a>
+                    </div>
+                  </div>
                 </div>
               )}
               </div>
@@ -595,10 +834,26 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                     ${Number(task.bounty_usdc).toFixed(2)} USDC
                   </dd>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <dt style={{ color: 'var(--muted)', fontWeight: 500 }}>On-Chain Deposit</dt>
                   <dd style={{ color: onchainEscrow?.funded ? 'var(--up)' : 'var(--muted)', fontWeight: 600 }}>
-                    {onchainEscrow?.funded ? 'Funded ✓' : 'Pending Deposit'}
+                    {task.fund_tx_hash ? (
+                      <a
+                        href={`https://explorer.testnet.arc.io/tx/${task.fund_tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="View Deposit Tx on Arc Explorer"
+                        style={{ color: 'var(--up)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        Funded ✓ <span style={{ fontSize: '10px' }}>↗</span>
+                      </a>
+                    ) : onchainEscrow?.funded ? (
+                      'Funded ✓'
+                    ) : task.status === 'posted' ? (
+                      'Awaiting Deposit'
+                    ) : (
+                      'Pending'
+                    )}
                   </dd>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -621,6 +876,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               </dl>
 
+              {/* Transaction status indicator */}
               {txStatus && (
                 <div
                   style={{
@@ -651,8 +907,25 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               )}
 
+              {/* ── Action Buttons ─────────────────────────── */}
               <div style={{ marginTop: '16px', borderTop: '1px solid var(--line)', paddingTop: '16px' }}>
-                {!account && (
+
+                {/* Refund expired funded task (no submissions) */}
+                {account && isExpired && task.status === 'funded' && (
+                  <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                    <button
+                      className="antares-btn-surface"
+                      style={{ width: '100%', height: '44px', color: 'var(--down)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                      onClick={handleRefundExpired}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Processing Refund…' : 'Refund Expired Task'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Connect wallet prompt */}
+                {!account && !isTerminal && (
                   <div style={{ textAlign: 'center' }}>
                     <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: '16px', lineHeight: 1.5 }}>
                       Connect your wallet to claim this task or interact with escrow.
@@ -667,7 +940,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   </div>
                 )}
 
-                {account && isPoster && !onchainEscrow?.funded && task.status !== 'approved' && (
+                {/* Poster: fund the escrow (posted → funded) */}
+                {account && isPoster && task.status === 'posted' && (
                   <div style={{ marginBottom: '16px' }}>
                     <button
                       className="antares-btn-accent"
@@ -680,7 +954,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   </div>
                 )}
 
-                {account && task.status === 'open' && !isPoster && (
+                {/* Worker: claim a funded task */}
+                {account && task.status === 'funded' && !isPoster && !isExpired && (
                   <button
                     className="antares-btn-accent"
                     style={{ width: '100%', height: '52px', fontSize: '15px' }}
@@ -691,11 +966,12 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   </button>
                 )}
 
-                {account && task.status === 'claimed' && isWorker && (
+                {/* Worker: submit proof (claimed or rejected for resubmission) */}
+                {account && (task.status === 'claimed' || task.status === 'rejected') && isWorker && (
                   <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--fg)', marginBottom: '8px' }}>
-                        Submit Pull Request / Proof Link
+                        {task.status === 'rejected' ? 'Resubmit Pull Request / Proof Link' : 'Submit Pull Request / Proof Link'}
                       </label>
                       <input
                         type="url"
@@ -711,81 +987,70 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       onClick={handleSubmitWork}
                       disabled={isSubmitting || !proof}
                     >
-                      {isSubmitting ? 'Submitting…' : 'Submit Proof for Approval'}
+                      {isSubmitting ? 'Submitting…' : task.status === 'rejected' ? 'Resubmit Proof' : 'Submit Proof for Approval'}
                     </button>
                   </div>
                 )}
 
+                {/* Poster: approve & pay or reject (submitted) */}
                 {account && task.status === 'submitted' && isPoster && (
                   <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <button
                       className="antares-btn-accent"
                       style={{ width: '100%', height: '52px', fontSize: '15px' }}
-                      onClick={handleApproveAndEscrow}
+                      onClick={handleApproveAndPay}
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? (txStatus || 'Processing…') : 'Approve & Release USDC'}
                     </button>
-                    <button
-                      className="antares-btn-surface"
-                      style={{ width: '100%', height: '44px', color: 'var(--down)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
-                      onClick={handleRefund}
-                      disabled={isSubmitting}
-                    >
-                      Reject Proof &amp; Refund Escrow
-                    </button>
-                  </div>
-                )}
-
-                {account && isPoster && (task.status === 'open' || task.status === 'rejected') && (
-                  <div className="animate-rise" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--muted)', padding: '0 0 4px 0', lineHeight: 1.5 }}>
-                      {task.status === 'open'
-                        ? 'You posted this task. Awaiting a worker to claim it.'
-                        : 'Task was rejected and is open for modification or removal.'}
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Optional rejection reason..."
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        className="antares-input glass"
+                        style={{ marginBottom: '8px' }}
+                      />
+                      <button
+                        className="antares-btn-surface"
+                        style={{ width: '100%', height: '44px', color: 'var(--down)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                        onClick={handleReject}
+                        disabled={isSubmitting}
+                      >
+                        Reject Submission
+                      </button>
                     </div>
-                    <button
-                      className="antares-btn-surface"
-                      style={{
-                        width: '100%',
-                        height: '44px',
-                        color: 'var(--down)',
-                        borderColor: 'rgba(239, 68, 68, 0.2)',
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px'
-                      }}
-                      onClick={handleDelete}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? 'Deleting…' : (
-                        <>
-                          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                          Delete Task
-                        </>
-                      )}
-                    </button>
                   </div>
                 )}
 
-                {task.status === 'approved' && (
+                {/* Poster info for posted/funded */}
+                {account && isPoster && (task.status === 'funded') && !isExpired && (
+                  <div className="animate-rise" style={{ textAlign: 'center', fontSize: '13px', color: 'var(--muted)', padding: '8px 0', lineHeight: 1.5 }}>
+                    You posted this task. Awaiting a worker to claim it.
+                  </div>
+                )}
+
+                {/* Terminal states */}
+                {isTerminal && (
                   <div
                     className="animate-rise"
                     style={{
                       textAlign: 'center',
                       fontSize: '14px',
                       fontWeight: 700,
-                      color: 'var(--up)',
+                      color: task.tx_hash ? 'var(--up)' : 'var(--muted)',
                       padding: '16px',
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      backgroundColor: task.tx_hash ? 'rgba(16, 185, 129, 0.1)' : 'var(--surface-2)',
+                      border: `1px solid ${task.tx_hash ? 'rgba(16, 185, 129, 0.2)' : 'var(--line)'}`,
                       borderRadius: '12px',
                     }}
                   >
-                    ✓ Bounty paid in full via USDC Escrow
+                    {task.tx_hash
+                      ? '✓ Bounty paid in full via USDC Escrow'
+                      : task.refund_tx_hash
+                        ? '↩ Escrow refunded to poster'
+                        : 'Task archived'}
                   </div>
                 )}
               </div>

@@ -54,6 +54,28 @@ class User(Base):
     tasks_claimed = relationship("Task", back_populates="worker", foreign_keys="Task.worker_id")
 
 
+# ── Task Lifecycle ────────────────────────────────────────────
+#
+#   POSTED → FUNDED → CLAIMED → SUBMITTED → APPROVED → PAID → ARCHIVED
+#                                    ↓                          ↑
+#                                REJECTED  ─→ (resubmit) ──────┘
+#
+#   FUNDED → (expired, no submissions) → REFUNDED → ARCHIVED
+#
+
+TASK_STATUSES = (
+    "posted",     # Task created in DB, not yet funded on-chain
+    "funded",     # Escrow funded on-chain, open for workers to claim
+    "claimed",    # Worker has claimed the task
+    "submitted",  # Worker submitted proof (GitHub PR/commit)
+    "approved",   # Poster approved the work, pending on-chain payment
+    "rejected",   # Poster rejected the proof; worker can resubmit
+    "paid",       # On-chain payment verified, USDC released to worker
+    "refunded",   # On-chain refund verified, USDC returned to poster
+    "archived",   # Terminal state after payment or refund
+)
+
+
 class Task(Base):
     __tablename__ = "tasks"
 
@@ -62,15 +84,18 @@ class Task(Base):
     description = Column(Text, nullable=True)
     bounty_usdc = Column(Numeric(18, 6), nullable=False)
     status = Column(
-        Enum("open", "claimed", "submitted", "approved", "rejected", name="task_status"),
-        default="open",
+        String(20),
+        default="posted",
         nullable=False,
     )
     poster_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     worker_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     proof = Column(Text, nullable=True)
-    tx_hash = Column(String(66), nullable=True, comment="On-chain release or latest tx hash")
+    rejection_reason = Column(Text, nullable=True, comment="Reason for rejection, if any")
+    tx_hash = Column(String(66), nullable=True, comment="On-chain payment release tx hash")
     fund_tx_hash = Column(String(66), nullable=True, comment="On-chain funding tx hash")
+    refund_tx_hash = Column(String(66), nullable=True, comment="On-chain refund tx hash")
+    expires_at = Column(DateTime, nullable=False, comment="Task expiration timestamp")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -82,12 +107,23 @@ class Task(Base):
 def init_db():
     """Initializes tables and ensures schema migrations."""
     Base.metadata.create_all(bind=engine)
+
+    # ── Schema migrations for existing databases ──────────────
     try:
         insp = inspect(engine)
         columns = [c["name"] for c in insp.get_columns("tasks")]
-        if "fund_tx_hash" not in columns:
-            with engine.connect() as conn:
-                conn.execute(text("ALTER TABLE tasks ADD COLUMN fund_tx_hash VARCHAR(66)"))
-                conn.commit()
+
+        migrations = {
+            "fund_tx_hash": "ALTER TABLE tasks ADD COLUMN fund_tx_hash VARCHAR(66)",
+            "expires_at": "ALTER TABLE tasks ADD COLUMN expires_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "rejection_reason": "ALTER TABLE tasks ADD COLUMN rejection_reason TEXT",
+            "refund_tx_hash": "ALTER TABLE tasks ADD COLUMN refund_tx_hash VARCHAR(66)",
+        }
+
+        with engine.connect() as conn:
+            for col_name, ddl in migrations.items():
+                if col_name not in columns:
+                    conn.execute(text(ddl))
+            conn.commit()
     except Exception:
         pass
