@@ -37,32 +37,52 @@ Taskbit is a decentralized micro-bounty marketplace built for the Arc network. P
 
 ---
 
+## ⚡ Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| **Frontend** | Next.js 16, React 19, TypeScript, Vanilla CSS, Ethers.js v6 |
+| **Backend** | Python, FastAPI, SQLAlchemy, Pydantic v2, Web3.py, PyJWT |
+| **Blockchain** | Solidity 0.8.27, Hardhat, Arc Testnet (EVM, Chain ID 5042002) |
+| **Database** | SQLite (development) / MySQL (production) |
+| **Authentication** | EIP-191 wallet signatures + JWT bearer tokens |
+| **Verification** | GitHub REST API (PR & commit validation) |
+
+---
+
 ## 🔄 Escrow Lifecycle
 
-The `TaskEscrow` smart contract enforces a secure, 4-step escrow lifecycle:
+The `TaskEscrow` smart contract enforces a secure escrow lifecycle where task registration and USDC funding happen atomically in a single transaction:
 
-1. **Create Task**:
-   - Creator initiates a task with a unique task ID and bounty amount:
-     ```solidity
-     taskEscrow.createTask(taskId, bounty);
-     ```
-2. **Fund Escrow**:
-   - Creator approves USDC transfer and locks the bounty in the escrow contract:
+1. **Create & Fund Task**:
+   - Creator registers a task and locks the USDC bounty in the escrow contract in one atomic transaction. The creator must approve the USDC transfer first:
      ```solidity
      usdc.approve(address(taskEscrow), bounty);
-     taskEscrow.fundTask(taskId);
+     taskEscrow.createTask(taskId, bounty, expiryTimestamp);
      ```
-3. **Assign Worker**:
-   - When a worker claims the task or is approved by the creator, the creator assigns their wallet address on-chain:
+   - Alternatively, a task can be created with a pre-assigned worker:
+     ```solidity
+     taskEscrow.createTask(taskId, workerAddress, bounty, expiryTimestamp);
+     ```
+
+2. **Assign Worker** (if not pre-assigned):
+   - When a worker claims the task, the creator assigns their wallet address on-chain:
      ```solidity
      taskEscrow.assignWorker(taskId, workerAddress);
      ```
+
+3. **Submit Work**:
+   - The assigned worker submits work on-chain to prevent the creator from refunding while work is in progress:
+     ```solidity
+     taskEscrow.submitWork(taskId);
+     ```
+
 4. **Release or Refund**:
    - **Work Approved**: Once the worker submits proof (verified via GitHub API), the creator approves and releases the bounty to the worker:
      ```solidity
      taskEscrow.releasePayment(taskId);
      ```
-   - **Task Refunded**: If work is rejected, cancelled, or expired, the creator can refund the escrowed USDC back to their wallet:
+   - **Task Expired & Refunded**: If the task expires with no work submitted, the creator can refund the escrowed USDC back to their wallet:
      ```solidity
      taskEscrow.refundTask(taskId);
      ```
@@ -110,7 +130,7 @@ Configure your variables:
 # Arc Blockchain
 ARC_TESTNET_RPC_URL=https://arc-testnet.drpc.org
 USDC_ADDRESS=0x3600000000000000000000000000000000000000
-CONTRACT_ADDRESS=0x7Dc4d05938F68F815BE3283870125B3A13bbDC7d
+CONTRACT_ADDRESS=0x9dC7c747B74dB5885AFC1798CAA1675F1510c4Df
 
 # Optional GitHub API Token (prevents rate limits)
 GITHUB_TOKEN=
@@ -146,22 +166,31 @@ npm run dev
 - Frontend: [http://localhost:3000](http://localhost:3000)
 - Backend API Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
+### 4. Deploy Smart Contract
+
+You can deploy the `TaskEscrow` contract in two ways:
+
+**Browser UI (recommended for quick setup):**
+Navigate to [http://localhost:3000/deploy-escrow](http://localhost:3000/deploy-escrow) and deploy directly from your browser wallet.
+
+**Hardhat CLI:**
+```bash
+cd contract
+npx hardhat ignition deploy ignition/modules/TaskEscrow.ts --network arcTestnet
+```
+
+After deployment, update `CONTRACT_ADDRESS` in your `.env` file with the new address.
+
 ---
 
 ## 🧪 Testing
 
-### Smart Contract Tests (Solidity & TypeScript)
-Run the full 14-test smart contract test suite (Foundry unit tests + Mocha integration tests):
+### Smart Contract Tests
+Run the Hardhat test suite:
 
 ```bash
 cd contract
 npx hardhat test
-```
-
-Or selectively:
-```bash
-npx hardhat test solidity
-npx hardhat test mocha
 ```
 
 ### Backend API Tests
@@ -181,9 +210,6 @@ npx tsc --noEmit
 
 ---
 
-## 🤖 Continuous Integration
+## 📝 License
 
-GitHub Actions workflow is configured in `.github/workflows/test.yml` to automatically execute:
-- Smart contract compilation and tests (`npx hardhat test`)
-- Backend test suite with pytest (`pytest tests/`)
-- TypeScript typecheck (`npx tsc --noEmit`)
+MIT

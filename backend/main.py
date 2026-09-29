@@ -636,21 +636,38 @@ def create_task(
     assert_caller_permission(payload.poster_wallet_address, current_user)
     poster = _get_user_by_wallet_or_404(payload.poster_wallet_address, db)
 
-    import random
-    task = Task(
-        id=random.randint(100000, 2147483647),
-        title=payload.title,
-        description=payload.description,
-        bounty_usdc=payload.bounty_usdc,
-        poster_id=poster.id,
-        status="posted",
-        fund_tx_hash=payload.fund_tx_hash,
-        expires_at=payload.expires_at.astimezone(timezone.utc).replace(tzinfo=None) if payload.expires_at.tzinfo else payload.expires_at,
+    expires_at = (
+        payload.expires_at.astimezone(timezone.utc).replace(tzinfo=None)
+        if payload.expires_at.tzinfo
+        else payload.expires_at
     )
-    db.add(task)
-    db.commit()
-    db.refresh(task)
-    return task
+
+    # Retry with a new random ID on the rare chance of a primary key collision
+    max_attempts = 5
+    for attempt in range(max_attempts):
+        task_id = secrets.randbelow(2147383647) + 100000  # range [100000, 2147483647)
+        task = Task(
+            id=task_id,
+            title=payload.title,
+            description=payload.description,
+            bounty_usdc=payload.bounty_usdc,
+            poster_id=poster.id,
+            status="posted",
+            fund_tx_hash=payload.fund_tx_hash,
+            expires_at=expires_at,
+        )
+        try:
+            db.add(task)
+            db.commit()
+            db.refresh(task)
+            return task
+        except IntegrityError:
+            db.rollback()
+            if attempt == max_attempts - 1:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to generate a unique task ID. Please try again.",
+                )
 
 
 @app.get("/tasks/", response_model=List[TaskResponse])
