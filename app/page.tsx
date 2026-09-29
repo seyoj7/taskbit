@@ -156,9 +156,9 @@ export default function Home() {
             <div className={styles.lifecycleGrid}>
               {[
                 { step: '01', title: 'Post Task & Escrow', desc: 'Poster specifies bounty and locks USDC in the smart contract.' },
-                { step: '02', title: 'Claim & Build', desc: 'Worker claims the open task and implements required code/deliverables.' },
-                { step: '03', title: 'Submit GitHub Proof', desc: 'Worker submits PR link. API verifies commit & branch status.' },
-                { step: '04', title: 'Release USDC', desc: 'Poster verifies output and releases escrowed USDC directly to worker.' },
+                { step: '02', title: 'Submit PR / Proof', desc: 'Any worker submits a GitHub PR link as proof of work — first come, first served.' },
+                { step: '03', title: 'Review & Verify', desc: 'Poster reviews submitted proof and verifies deliverables match requirements.' },
+                { step: '04', title: 'Release USDC', desc: 'Poster approves and releases escrowed USDC directly to the worker.' },
               ].map((item, idx) => (
                 <div
                   key={idx}

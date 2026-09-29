@@ -192,7 +192,8 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding-top: 4px;
+  padding-top: 6px;
+  margin-top: auto;
 }
 
 .proofTag {

@@ -121,6 +121,10 @@
   margin: 0 auto 16px auto;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .errorContainer {
   padding: 32px;
   text-align: center;
@@ -162,9 +166,20 @@
   line-height: 1.5;
 }
 
+.errorText {
+  font-weight: 600;
+}
+
+.emptyStateLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .taskGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
   gap: 16px;
   animation-delay: 0.2s;
 }

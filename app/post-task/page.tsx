@@ -26,6 +26,7 @@ export default function PostTask() {
   const router = useRouter();
   const { account, user, connectWallet, switchToArcTestnet } = useWallet();
   const [title, setTitle] = useState('');
+  const [githubRepo, setGithubRepo] = useState('');
   const [description, setDescription] = useState('');
   const [bounty, setBounty] = useState<number | ''>('');
   const [deadlineMode, setDeadlineMode] = useState<'3d' | '1w' | '2w' | 'custom'>('1w');
@@ -90,9 +91,13 @@ export default function PostTask() {
 
     try {
       setStatusMsg('Creating task record...');
+      const finalDescription = githubRepo 
+        ? `**GitHub Repository:** ${githubRepo}\n\n${description}`
+        : description;
+
       const createdTask = await createTask({
         title,
-        description,
+        description: finalDescription,
         bounty_usdc: Number(bounty),
         poster_wallet_address: account,
         expires_at: expiryDate.toISOString(),
@@ -178,10 +183,9 @@ export default function PostTask() {
   return (
     <>
       <Navbar />
-      <main style={{ maxWidth: '600px', margin: '40px auto', padding: '0 16px', width: '100%', flex: 1 }}>
+      <main className={styles.main}>
         <div
-          className={`antares-card animate-rise glass-thick ${styles.modal}`}
-          style={{ width: '100%', maxWidth: '100%' }}
+          className={`antares-card animate-rise glass-thick ${styles.modal} ${styles.modalFull}`}
         >
           <div className={styles.header}>
             <div>
@@ -204,31 +208,8 @@ export default function PostTask() {
           )}
 
           {statusMsg && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '12px 16px',
-                borderRadius: '12px',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                color: '#60a5fa',
-                fontSize: '14px',
-                marginBottom: '16px',
-              }}
-            >
-              <span
-                style={{
-                  width: '16px',
-                  height: '16px',
-                  borderRadius: '50%',
-                  border: '2px solid #60a5fa',
-                  borderTopColor: 'transparent',
-                  animation: 'spin 0.8s linear infinite',
-                  display: 'inline-block',
-                }}
-              />
+            <div className={styles.statusBanner}>
+              <span className={styles.statusSpinner} />
               {statusMsg}
             </div>
           )}
@@ -243,6 +224,20 @@ export default function PostTask() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Implement Arc smart contract tests"
+                className="antares-input glass"
+                required
+              />
+            </div>
+
+            <div>
+              <label className={styles.label}>
+                GitHub Repository Link
+              </label>
+              <input
+                type="url"
+                value={githubRepo}
+                onChange={(e) => setGithubRepo(e.target.value)}
+                placeholder="https://github.com/owner/repo"
                 className="antares-input glass"
                 required
               />
@@ -284,13 +279,13 @@ export default function PostTask() {
             </div>
 
             <div>
-              <label className={styles.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <label className={`${styles.label} ${styles.deadlineLabelFlex}`}>
                 <span>Task Deadline</span>
-                <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 500, textTransform: 'none', letterSpacing: 'normal' }}>
+                <span className={styles.deadlinePreview}>
                   {deadlineMode !== 'custom' && expiresAt ? new Date(expiresAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
                 </span>
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: deadlineMode === 'custom' ? '12px' : '0' }}>
+              <div className={deadlineMode === 'custom' ? styles.deadlineGridSpaced : styles.deadlineGrid}>
                 {([
                   { id: '3d', label: '3 Days' },
                   { id: '1w', label: '1 Week' },
@@ -301,8 +296,7 @@ export default function PostTask() {
                     key={opt.id}
                     type="button"
                     onClick={() => setDeadlineMode(opt.id)}
-                    className={deadlineMode === opt.id ? "antares-btn-accent" : "antares-btn-surface"}
-                    style={{ height: '40px', padding: '0', fontSize: '13px', width: '100%' }}
+                    className={`${deadlineMode === opt.id ? 'antares-btn-accent' : 'antares-btn-surface'} ${styles.deadlineBtn}`}
                   >
                     {opt.label}
                   </button>
@@ -323,23 +317,19 @@ export default function PostTask() {
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', backgroundColor: 'var(--surface-2)', borderRadius: '12px', border: '1px solid var(--line)' }}>
+            <div className={styles.checkboxRow}>
               <input
                 type="checkbox"
                 id="fundOnChainToggle"
                 checked={fundOnChain}
                 onChange={(e) => setFundOnChain(e.target.checked)}
-                style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--accent)' }}
+                className={styles.checkboxInput}
               />
-              <label htmlFor="fundOnChainToggle" style={{ fontSize: '13px', color: 'var(--fg)', cursor: 'pointer', fontWeight: 500 }}>
+              <label htmlFor="fundOnChainToggle" className={styles.checkboxLabel}>
                 Fund Escrow with USDC immediately on Arc Testnet
               </label>
             </div>
 
-            <div className={styles.ruleBox}>
-              <span className={styles.ruleLabel}>Escrow Release Rule</span>
-              <span className={styles.ruleValue}>GitHub PR Verification</span>
-            </div>
 
             {(!account || !user) ? (
               <button

@@ -129,3 +129,101 @@
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.main {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 0 16px;
+  width: 100%;
+  flex: 1;
+}
+
+.modalFull {
+  width: 100%;
+  max-width: 100%;
+}
+
+.statusBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.statusSpinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #60a5fa;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+.deadlineLabelFlex {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.deadlinePreview {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.deadlineGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.deadlineGridSpaced {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.deadlineBtn {
+  height: 40px;
+  padding: 0;
+  font-size: 13px;
+  width: 100%;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background-color: var(--surface-2);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.checkboxInput {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.checkboxLabel {
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+  font-weight: 500;
+}

@@ -54,19 +54,18 @@ class User(Base):
     tasks_claimed = relationship("Task", back_populates="worker", foreign_keys="Task.worker_id")
 
 
-# ── Task Lifecycle ────────────────────────────────────────────
+# ── Task Lifecycle (first-come-first-serve) ───────────────────
 #
-#   POSTED → FUNDED → CLAIMED → SUBMITTED → APPROVED → PAID → ARCHIVED
-#                                    ↓                          ↑
-#                                REJECTED  ─→ (resubmit) ──────┘
+#   POSTED → FUNDED → SUBMITTED → APPROVED → PAID → ARCHIVED
+#                         ↓                          ↑
+#                     REJECTED  ─→ (resubmit) ──────┘
 #
 #   FUNDED → (expired, no submissions) → REFUNDED → ARCHIVED
 #
 
 TASK_STATUSES = (
     "posted",     # Task created in DB, not yet funded on-chain
-    "funded",     # Escrow funded on-chain, open for workers to claim
-    "claimed",    # Worker has claimed the task
+    "funded",     # Escrow funded on-chain, open for workers to submit
     "submitted",  # Worker submitted proof (GitHub PR/commit)
     "approved",   # Poster approved the work, pending on-chain payment
     "rejected",   # Poster rejected the proof; worker can resubmit
@@ -102,6 +101,10 @@ class Task(Base):
     # Relationships
     poster = relationship("User", back_populates="tasks_posted", foreign_keys=[poster_id])
     worker = relationship("User", back_populates="tasks_claimed", foreign_keys=[worker_id])
+
+    @property
+    def poster_wallet_address(self) -> str:
+        return self.poster.wallet_address if self.poster else ""
 
 
 def init_db():

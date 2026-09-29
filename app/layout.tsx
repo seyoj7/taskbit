@@ -35,7 +35,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+      <body>
         <WalletProvider>
           {children}
         </WalletProvider>

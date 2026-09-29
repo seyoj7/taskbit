@@ -9,8 +9,7 @@ import { fetchTasks, Task } from '../components/api';
 import styles from './dashboard.module.css';
 const STATUS_TABS = [
   { label: 'All Tasks', value: 'all' },
-  { label: 'Open', value: 'open' },
-  { label: 'In Progress', value: 'claimed' },
+  { label: 'Open', value: 'funded' },
   { label: 'Reviewing', value: 'submitted' },
   { label: 'Approved', value: 'approved' },
 ] as const;
@@ -153,7 +152,7 @@ export default function Dashboard() {
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
-              <div style={{ fontWeight: 600 }}>{error}</div>
+              <div className={styles.errorText}>{error}</div>
             </div>
           )}
 
@@ -167,9 +166,8 @@ export default function Dashboard() {
                 {searchQuery ? 'Try adjusting your search keywords or filter.' : 'Be the first to post a task and fund it with USDC escrow!'}
               </p>
               <Link
-                className="antares-btn-accent"
+                className={`antares-btn-accent ${styles.emptyStateLink}`}
                 href="/post-task"
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
               >
                 + Post a New Task
               </Link>
@@ -190,12 +188,11 @@ export default function Dashboard() {
                       ? 'Open'
                       : task.status === 'posted'
                       ? 'Pending Deposit'
-                      : task.status === 'claimed'
-                      ? 'In Progress'
                       : task.status === 'submitted'
                       ? 'In Review'
                       : 'Completed'
                   }
+                  poster_wallet_address={task.poster_wallet_address}
                 />
               ))}
             </div>

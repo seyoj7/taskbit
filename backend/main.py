@@ -21,7 +21,7 @@ from eth_account.messages import encode_defunct
 from web3 import Web3
 import uvicorn
 
-from db import engine, get_db, init_db, Base, User, Task, TASK_STATUSES
+from database import engine, get_db, init_db, Base, User, Task, TASK_STATUSES
 from escrow import (
     check_escrow_contract_health,
     get_onchain_escrow_task,
@@ -153,6 +153,7 @@ class TaskResponse(BaseModel):
     bounty_usdc: Decimal
     status: str
     poster_id: int
+    poster_wallet_address: str
     worker_id: Optional[int]
     proof: Optional[str]
     rejection_reason: Optional[str]
@@ -386,6 +387,13 @@ def _get_task_or_404(task_id: int, db: Session) -> Task:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Task with id {task_id} not found",
         )
+        
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if task.status == "posted" and task.expires_at < now:
+        task.status = "archived"
+        db.commit()
+        db.refresh(task)
+        
     return task
 
 
@@ -677,6 +685,13 @@ def list_tasks(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    expired_posted = db.query(Task).filter(Task.status == "posted", Task.expires_at < now).all()
+    if expired_posted:
+        for t in expired_posted:
+            t.status = "archived"
+        db.commit()
+
     query = db.query(Task)
     if task_status:
         query = query.filter(Task.status == task_status)
@@ -705,10 +720,10 @@ def get_task_escrow(task_id: int, db: Session = Depends(get_db)):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  Task Lifecycle:
-#    POSTED → FUNDED → CLAIMED → SUBMITTED → APPROVED → PAID → ARCHIVED
-#                                     ↓
-#                                 REJECTED → (resubmit) → SUBMITTED
+#  Task Lifecycle (first-come-first-serve):
+#    POSTED → FUNDED → SUBMITTED → APPROVED → PAID → ARCHIVED
+#                          ↓
+#                      REJECTED → (resubmit) → SUBMITTED
 #
 #    FUNDED → (expired, no submissions) → REFUNDED → ARCHIVED
 # ═══════════════════════════════════════════════════════════════
@@ -800,19 +815,30 @@ def submit_proof(
 ):
     """
     Worker submits proof of completed work with GitHub verification.
-    Allows initial submission and resubmission after rejection.
-    Transitions: claimed → submitted, rejected → submitted
+    First-come-first-serve: any non-poster user can submit on a funded task.
+    Also allows resubmission after rejection by the assigned worker.
+    Transitions: funded → submitted, rejected → submitted
     """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
-    _assert_status(task, ["claimed", "rejected"], "submit proof")
+    _assert_status(task, ["funded", "rejected"], "submit proof")
 
     worker = _get_user_by_wallet_or_404(payload.wallet_address, db)
-    if worker.id != task.worker_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the assigned worker can submit proof",
-        )
+
+    # For funded tasks (first submission), auto-assign the worker
+    if task.status == "funded":
+        if worker.id == task.poster_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot submit proof on your own task",
+            )
+    else:
+        # For rejected tasks, only the assigned worker can resubmit
+        if worker.id != task.worker_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the assigned worker can resubmit proof",
+            )
 
     # Check expiry
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -829,6 +855,7 @@ def submit_proof(
             detail=f"GitHub proof verification failed: {reason}",
         )
 
+    task.worker_id = worker.id
     task.proof = payload.proof
     task.rejection_reason = None  # Clear previous rejection reason on resubmission
     task.status = "submitted"

@@ -17,6 +17,10 @@
   margin: 0 auto 16px auto;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .loadingText {
   font-size: 15px;
   font-weight: 600;
@@ -454,10 +458,562 @@
 }
 
 .contractInfo {
-  margin-top: 24px;
+  margin-top: 16px;
   border-top: 1px solid var(--line);
-  padding-top: 20px;
+  padding-top: 16px;
   font-size: 12px;
   color: var(--muted);
   text-align: center;
+}
+
+.contractLink {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.contractLink:hover {
+  text-decoration: underline;
+  color: #60a5fa;
+}
+
+.mainDetail {
+  max-width: 920px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 40px 16px;
+  flex: 1;
+}
+
+.detailContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.detailCard {
+  padding: 28px;
+  animation-delay: 0.1s;
+}
+
+.badgeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 24px;
+  margin-bottom: 12px;
+}
+
+.taskIdInlineBadge {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  background-color: var(--surface-2);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  display: inline-block;
+}
+
+.statusBadgeInline {
+  text-transform: capitalize;
+  font-size: 13px;
+  padding: 5px 12px;
+}
+
+.detailTitle {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  line-height: 1.2;
+  margin: 0;
+}
+
+.metaStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 12px 16px;
+  background-color: var(--surface-2);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.metaLabel {
+  color: var(--muted);
+  font-size: 11px;
+  display: block;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.metaValueRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.metaValueMono {
+  font-weight: 600;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.metaValueText {
+  font-weight: 600;
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.copyBtnInline {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: color 0.15s ease;
+  line-height: 1;
+}
+
+.copyBtnInline:hover {
+  color: var(--fg);
+}
+
+.copyBtnActive {
+  color: var(--accent);
+}
+
+.workerBlock {
+  border-left: 1px solid var(--line);
+  padding-left: 16px;
+}
+
+.metaValueAccent {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.deadlineExpired {
+  font-weight: 600;
+  color: var(--down);
+}
+
+.deadlineActive {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.descSection {
+  margin-top: 20px;
+}
+
+.descLabelMicro {
+  margin-bottom: 8px;
+}
+
+.descContent {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg);
+  white-space: pre-wrap;
+  padding: 12px 16px;
+  background-color: var(--surface-2);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.proofSection {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: 16px;
+  background-color: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.proofHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.proofLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3b82f6;
+  letter-spacing: 0.05em;
+}
+
+.proofBadge {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.proofLinkStyled {
+  color: var(--fg);
+  font-size: 14px;
+  text-decoration: underline;
+  word-break: break-all;
+  font-weight: 500;
+}
+
+.rejectionSection {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background-color: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.rejectionLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--down);
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+
+.rejectionText {
+  font-size: 14px;
+  color: var(--fg);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.escrowHeader {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.onchainBadge {
+  font-size: 12px;
+  color: var(--up);
+  background-color: rgba(16, 185, 129, 0.1);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.bountyDisplay {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-family: var(--font-mono);
+  color: var(--fg);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.bountyUnit {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.escrowDl {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.escrowRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.escrowRowAligned {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.escrowDt {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.escrowDd {
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.escrowDdUp {
+  color: var(--up);
+  font-weight: 600;
+}
+
+.escrowDdMuted {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.escrowDdAccent {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.escrowRowTotal {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px dashed var(--line);
+  padding-top: 16px;
+  font-weight: 700;
+}
+
+.escrowDtTotal {
+  color: var(--fg);
+}
+
+.escrowDdTotal {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+.fundedLink {
+  color: var(--up);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fundedLinkIcon {
+  font-size: 10px;
+  color: #ffffff;
+}
+
+.txStatusBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+  font-size: 13px;
+  margin-top: 20px;
+}
+
+.txStatusSpinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #60a5fa;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+.actionsDivider {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.refundBtnStyled {
+  width: 100%;
+  height: 44px;
+  color: var(--down);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.refundBtnDisabled {
+  opacity: 0.5;
+}
+
+.connectPromptCenter {
+  text-align: center;
+}
+
+.connectMsg {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.connectBtnFull {
+  width: 100%;
+  height: 52px;
+  font-size: 15px;
+}
+
+.fundBtnFull {
+  width: 100%;
+  height: 48px;
+  font-size: 14px;
+}
+
+.submitLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 8px;
+}
+
+.rejectionInputSpaced {
+  margin-bottom: 8px;
+}
+
+.terminalBanner {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.terminalBannerPaid {
+  color: var(--up);
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.terminalBannerDefault {
+  color: var(--muted);
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.txDivider {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.settlementBox {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: 16px;
+  background-color: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.settlementHeader {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--up);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settlementTxLabel {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.txHashBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.25);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.txHashBoxGreen {
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.txHashBoxRed {
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.txHashText {
+  color: var(--fg);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.txActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.txCopyBtn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.txCopyBtnActive {
+  color: var(--up);
+}
+
+.txCopiedLabel {
+  font-weight: 600;
+}
+
+.txExplorerLink {
+  color: var(--muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.txExplorerLink:hover {
+  color: var(--fg);
+}
+
+.refundBox {
+  margin-top: 16px;
+  padding: 20px;
+  border-radius: 16px;
+  background-color: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.refundHeader {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--down);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }

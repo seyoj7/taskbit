@@ -25,7 +25,7 @@ test_engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
 
-from db import Base, get_db
+from database import Base, get_db
 from main import app
 
 

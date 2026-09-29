@@ -13,12 +13,11 @@ const TOKEN_KEY = 'taskbit_auth_token';
 
 /**
  * Task lifecycle statuses:
- *   posted → funded → claimed → submitted → approved/rejected → paid/refunded → archived
+ *   posted → funded → submitted → approved/rejected → paid/refunded → archived
  */
 export type TaskStatus =
   | 'posted'
   | 'funded'
-  | 'claimed'
   | 'submitted'
   | 'approved'
   | 'rejected'
@@ -33,6 +32,7 @@ export interface Task {
   bounty_usdc: number;
   status: TaskStatus;
   poster_id: number;
+  poster_wallet_address: string;
   worker_id: number | null;
   proof: string | null;
   rejection_reason: string | null;
@@ -190,18 +190,7 @@ export async function createTask(payload: {
   return res.json().then(normalizeTaskDates);
 }
 
-export async function claimTask(taskId: number, wallet_address: string): Promise<Task> {
-  const res = await fetch(`${API_URL}/tasks/${taskId}/claim`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ wallet_address }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || 'Failed to claim task');
-  }
-  return res.json().then(normalizeTaskDates);
-}
+
 
 export async function fetchTaskById(taskId: number): Promise<Task> {
   const res = await fetch(`${API_URL}/tasks/${taskId}`);

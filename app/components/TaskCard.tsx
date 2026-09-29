@@ -10,9 +10,10 @@ interface TaskCardProps {
   description: string;
   bounty: number;
   status: 'Open' | 'In Progress' | 'Completed' | string;
+  poster_wallet_address?: string;
 }
 
-export default function TaskCard({ id, title, description, bounty, status }: TaskCardProps) {
+export default function TaskCard({ id, title, description, bounty, status, poster_wallet_address }: TaskCardProps) {
   const router = useRouter();
   const formattedId = typeof id === 'number' ? `#${String(id).padStart(4, '0')}` : `#${id}`;
 
@@ -30,14 +31,6 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
         <span className={styles.statusOpen}>
           <span className={styles.dotPulse} />
           Open
-        </span>
-      );
-    }
-    if (s === 'claimed') {
-      return (
-        <span className={styles.statusClaimed}>
-          <span className={styles.dot} />
-          Claimed
         </span>
       );
     }
@@ -95,23 +88,12 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
           <span className={styles.idBadge}>
             {formattedId}
           </span>
-          <span className={styles.escrowBadge}>
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={styles.escrowIcon}
-            >
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            On-Chain Escrow
-          </span>
+
+          {poster_wallet_address && (
+            <span className={styles.idBadge} title={`Poster: ${poster_wallet_address}`}>
+              {poster_wallet_address.slice(0, 6)}...{poster_wallet_address.slice(-4)}
+            </span>
+          )}
         </div>
         {renderStatusBadge()}
       </div>
@@ -144,9 +126,22 @@ export default function TaskCard({ id, title, description, bounty, status }: Tas
             </svg>
             <span>GitHub PR Proof</span>
           </span>
-
-          <span className={styles.chainTag}>
-            Arc EVM
+          <span className={styles.escrowBadge}>
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={styles.escrowIcon}
+            >
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            On-Chain Escrow
           </span>
         </div>
       </div>
