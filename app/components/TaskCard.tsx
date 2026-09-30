@@ -59,7 +59,8 @@ export default function TaskCard({ id, title, description, bounty, status, poste
     }
     if (s === 'refunded') {
       return (
-        <span className={styles.idBadge}>
+        <span className={styles.statusRefunded}>
+          <span className={styles.dot} />
           Refunded
         </span>
       );

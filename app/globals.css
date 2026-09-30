@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --bg: #f8f9fa;
   --surface: #ffffff;
   --surface-2: #f1f3f5;
@@ -27,6 +28,7 @@
 }
 
 html.dark, :root.dark, body.dark {
+  color-scheme: dark;
   --bg: #09090b;
   --surface: #121214;
   --surface-2: #18181b;
@@ -51,6 +53,7 @@ html.dark, :root.dark, body.dark {
 
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
     --bg: #09090b;
     --surface: #121214;
     --surface-2: #18181b;
@@ -365,6 +368,54 @@ button {
 
 .antares-input::placeholder {
   color: var(--muted);
+  opacity: 0.7;
+}
+
+/* Date & Datetime inputs styling */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  color-scheme: dark;
+}
+
+html:not(.dark) input[type="date"],
+html:not(.dark) input[type="datetime-local"],
+html:not(.dark) input[type="time"] {
+  color-scheme: light;
+}
+
+/* Make calendar picker icon white in dark mode */
+html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+html.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark .antares-input::-webkit-calendar-picker-indicator,
+.antares-input::-webkit-calendar-picker-indicator {
+  filter: brightness(0) invert(1);
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover,
+html.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+html.dark input[type="time"]::-webkit-calendar-picker-indicator:hover,
+.dark input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+.dark input[type="time"]::-webkit-calendar-picker-indicator:hover,
+.dark .antares-input::-webkit-calendar-picker-indicator:hover,
+.antares-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+html:not(.dark) input[type="date"]::-webkit-calendar-picker-indicator,
+html:not(.dark) input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+html:not(.dark) input[type="time"]::-webkit-calendar-picker-indicator,
+html:not(.dark) .antares-input::-webkit-calendar-picker-indicator {
+  filter: none;
   opacity: 0.7;
 }
 

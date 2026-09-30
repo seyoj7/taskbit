@@ -183,7 +183,9 @@ contract TaskEscrow {
     }
 
     /**
-     * @notice Refund escrowed USDC back to the creator (task cancelled/rejected).
+     * @notice Refund escrowed USDC back to the creator (task expired/rejected).
+     *         Allowed after expiry regardless of whether work was submitted,
+     *         so posters can reclaim funds after rejecting a submission.
      * @param taskId  The task whose bounty should be refunded.
      */
     function refundTask(uint256 taskId) external {
@@ -192,7 +194,6 @@ contract TaskEscrow {
         if (!task.funded) revert NotFunded();
         if (task.completed) revert AlreadyCompleted();
         if (block.timestamp < task.expiryTimestamp) revert TaskNotExpired();
-        if (task.workSubmitted) revert WorkAlreadySubmitted();
 
         task.completed = true;
 

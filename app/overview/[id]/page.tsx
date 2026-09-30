@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
+import ConfirmModal from '../../components/ConfirmModal';
 import styles from './overview.module.css';
 import {
   fetchTaskById,
@@ -86,6 +87,22 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [copiedTx, setCopiedTx] = useState<string | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant?: 'danger' | 'warning' | 'info' | 'accent';
+  } | null>(null);
+
+  const showAlert = (message: string, title: string = 'Notice', variant: 'danger' | 'warning' | 'info' | 'accent' = 'info') => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      variant,
+    });
+  };
 
   const handleCopyTx = (txHash: string, key: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -142,7 +159,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
 
   const handleSubmitWork = async () => {
-    if (!proof) return alert("Please provide a valid GitHub PR or proof link.");
+    if (!proof) return showAlert("Please provide a valid GitHub PR or proof link.", "Proof Required", "warning");
     if (!account) return connectWallet();
     setIsSubmitting(true);
     try {
@@ -164,7 +181,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       await submitTaskWork(task!.id, account, proof);
       await loadTask();
     } catch (err: any) {
-      alert(err.message || "Failed to submit work");
+      showAlert(err.message || "Failed to submit work", "Submission Error", "danger");
     } finally {
       setIsSubmitting(false);
     }
@@ -237,7 +254,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       await loadTask();
     } catch (err: any) {
       console.error(err);
-      alert(err.reason || err.message || "Failed to fund escrow");
+      showAlert(err.reason || err.message || "Failed to fund escrow", "Escrow Funding Error", "danger");
     } finally {
       setIsSubmitting(false);
       setTxStatus(null);
@@ -246,7 +263,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
   const handleApproveAndPay = async () => {
     if (!account) return connectWallet();
-    if (!task?.worker_id) return alert("No worker assigned.");
+    if (!task?.worker_id) return showAlert("No worker assigned.", "Action Unavailable", "warning");
 
     setIsSubmitting(true);
     setTxStatus("Initializing Arc transaction...");
@@ -313,23 +330,61 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       await loadTask();
     } catch (err: any) {
       console.error(err);
-      alert(err.reason || err.message || "Failed to execute escrow transaction");
+      showAlert(err.reason || err.message || "Failed to execute escrow transaction", "Escrow Error", "danger");
     } finally {
       setIsSubmitting(false);
       setTxStatus(null);
     }
   };
 
-  const handleReject = async () => {
+  const handleRejectClick = () => {
     if (!account) return connectWallet();
-    if (!confirm("Are you sure you want to reject this submission? The worker can still resubmit.")) return;
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!account) return connectWallet();
 
     setIsSubmitting(true);
     try {
       await rejectTask(task!.id, account, rejectionReason || undefined);
+      setShowRejectModal(false);
+
+      // Auto-refund if task is expired
+      const expired = task ? new Date(task.expires_at).getTime() < Date.now() : false;
+      if (expired) {
+        try {
+          setTxStatus("Task expired — processing automatic refund...");
+          if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
+          const provider = new ethers.BrowserProvider((window as any).ethereum);
+          const network = await provider.getNetwork();
+          if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
+            setTxStatus("Switching wallet to Arc Testnet...");
+            const switched = await switchToArcTestnet();
+            if (!switched) throw new Error("Could not switch to Arc Testnet.");
+          }
+          const signer = await provider.getSigner();
+          const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
+
+          setTxStatus("Requesting escrow refund in wallet...");
+          const refundTx = await escrow.refundTask(task!.id);
+          setTxStatus("Waiting for refund confirmation...");
+          const receipt = await refundTx.wait();
+          const refundTxHash = receipt.hash || refundTx.hash;
+
+          setTxStatus("Recording refund...");
+          await refundExpiredTask(task!.id, account, refundTxHash);
+        } catch (refundErr: any) {
+          console.warn("Auto-refund after rejection failed:", refundErr);
+          // Non-blocking: rejection still succeeded, refund can be done manually
+        } finally {
+          setTxStatus(null);
+        }
+      }
+
       await loadTask();
     } catch (err: any) {
-      alert(err.message || "Failed to reject task");
+      showAlert(err.message || "Failed to reject task", "Rejection Failed", "danger");
     } finally {
       setIsSubmitting(false);
     }
@@ -364,7 +419,14 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       await loadTask();
     } catch (err: any) {
       console.error(err);
-      alert(err.reason || err.message || "Failed to refund task");
+      let errorMsg = err.reason || err.message || "Failed to refund task";
+      // Decode known contract custom errors
+      if (err.data === '0xf13ac034') {
+        errorMsg = "Cannot refund: the worker has already submitted work on-chain. You must approve or reject the submission.";
+      } else if (err.data === '0xa262cd46') {
+        errorMsg = "Task has not expired yet. Refund is only available after the deadline.";
+      }
+      showAlert(errorMsg, "Refund Failed", "danger");
     } finally {
       setIsSubmitting(false);
       setTxStatus(null);
@@ -412,14 +474,14 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   const isPoster = user?.id === task.poster_id;
   const isWorker = user?.id === task.worker_id;
   const isExpired = task ? new Date(task.expires_at).getTime() < Date.now() : false;
-  const isTerminal = ['paid', 'refunded', 'archived'].includes(task.status);
+  const isTerminal = ['approved', 'paid', 'refunded', 'archived'].includes(task.status);
 
-  const showRefund = Boolean(account && isPoster && isExpired && task.status === 'funded');
+  const showRefund = Boolean(account && isPoster && ['funded', 'rejected'].includes(task.status));
   const showConnect = Boolean(!account && !isTerminal);
   const showFund = Boolean(account && isPoster && task.status === 'posted');
   const showSubmit = Boolean(account && (
     (task.status === 'funded' && !isPoster && !isExpired) ||
-    (task.status === 'rejected' && isWorker)
+    (task.status === 'rejected' && isWorker && !isExpired)
   ));
   const showApprove = Boolean(account && task.status === 'submitted' && isPoster);
   const showPosterWait = Boolean(account && isPoster && task.status === 'funded' && !isExpired);
@@ -653,7 +715,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 <div className={styles.actionsDivider}>
 
                   {/* Refund funded task (disabled until expired) */}
-                {account && isPoster && task.status === 'funded' && (
+                {account && isPoster && ['funded', 'rejected'].includes(task.status) && (
                   <div className={`animate-rise ${styles.actionWrapper}`}>
                     <button
                       className={`antares-btn-surface ${styles.refundBtnStyled} ${!isExpired ? styles.refundBtnDisabled : ''}`}
@@ -728,7 +790,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                     >
                       {isSubmitting ? (txStatus || 'Processing…') : 'Approve & Release USDC'}
                     </button>
-                    <div>
+                    <div className={styles.actionWrapper}>
                       <input
                         type="text"
                         placeholder="Optional rejection reason..."
@@ -738,7 +800,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       />
                       <button
                         className={`antares-btn-surface ${styles.rejectBtn}`}
-                        onClick={handleReject}
+                        onClick={handleRejectClick}
                         disabled={isSubmitting}
                       >
                         Reject Submission
@@ -869,6 +931,31 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
         </div>
       </main>
+
+      <ConfirmModal
+        isOpen={showRejectModal}
+        title="Reject Submission"
+        message="Are you sure you want to reject this submission? The worker can still resubmit."
+        confirmText="Reject"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isSubmitting}
+        onCancel={() => !isSubmitting && setShowRejectModal(false)}
+        onConfirm={handleConfirmReject}
+      />
+
+      {alertModal && (
+        <ConfirmModal
+          isOpen={alertModal.isOpen}
+          title={alertModal.title}
+          message={alertModal.message}
+          variant={alertModal.variant || 'danger'}
+          confirmText="OK"
+          cancelText={null}
+          onConfirm={() => setAlertModal(null)}
+          onCancel={() => setAlertModal(null)}
+        />
+      )}
 
       <Footer />
     </>

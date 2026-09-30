@@ -12,6 +12,7 @@ const STATUS_TABS = [
   { label: 'Open', value: 'funded' },
   { label: 'Reviewing', value: 'submitted' },
   { label: 'Approved', value: 'approved' },
+  { label: 'Refunded', value: 'failed' },
 ] as const;
 
 export default function Dashboard() {
@@ -75,7 +76,7 @@ export default function Dashboard() {
               </div>
 
               <div className={styles.statItem}>
-                <div className="text-label-micro">Active Tasks</div>
+                <div className="text-label-micro">Tasks</div>
                 <div className={styles.statValue}>
                   {tasks.length}
                 </div>
@@ -184,12 +185,16 @@ export default function Dashboard() {
                   description={task.description || 'No description provided.'}
                   bounty={Number(task.bounty_usdc)}
                   status={
-                    task.status === 'funded'
+                    task.status === 'rejected' || task.status === 'refunded' || (task.status === 'archived' && task.refund_tx_hash) || (task.status === 'funded' && new Date(task.expires_at) < new Date())
+                      ? 'Refunded'
+                      : task.status === 'funded'
                       ? 'Open'
                       : task.status === 'posted'
                       ? 'Pending Deposit'
                       : task.status === 'submitted'
                       ? 'In Review'
+                      : task.status === 'approved' || task.status === 'paid' || (task.status === 'archived' && task.tx_hash)
+                      ? 'Approved'
                       : 'Completed'
                   }
                   poster_wallet_address={task.poster_wallet_address}

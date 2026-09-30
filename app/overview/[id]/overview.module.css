@@ -903,12 +903,10 @@
 }
 
 .txDivider {
-  margin-top: 24px;
   border-top: 1px solid var(--line);
 }
 
 .settlementBox {
-  margin-top: 24px;
   padding: 20px;
   border-radius: 16px;
   background-color: rgba(16, 185, 129, 0.05);
@@ -1001,7 +999,6 @@
 }
 
 .refundBox {
-  margin-top: 16px;
   padding: 20px;
   border-radius: 16px;
   background-color: rgba(239, 68, 68, 0.05);
@@ -1016,4 +1013,16 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.actionsDivider {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.actionWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }

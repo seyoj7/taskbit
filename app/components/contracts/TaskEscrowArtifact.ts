@@ -466,9 +466,9 @@ export const TASK_ESCROW_ABI = [
   }
 ];
 
-export const TASK_ESCROW_ADDRESS = '0x9dC7c747B74dB5885AFC1798CAA1675F1510c4Df';
-export const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
-export const ARC_TESTNET_RPC_URL = 'https://arc-testnet.drpc.org';
+export const TASK_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xC6c30F4Fd3118779Ebc2e744249e5a25D436cC84';
+export const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x3600000000000000000000000000000000000000';
+export const ARC_TESTNET_RPC_URL = process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_URL || 'https://arc-testnet.drpc.org';
 export const USDC_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
   'function transferFrom(address from, address to, uint256 amount) returns (bool)',

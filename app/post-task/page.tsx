@@ -189,7 +189,6 @@ export default function PostTask() {
         >
           <div className={styles.header}>
             <div>
-              <div className="text-label-micro">Arc Escrow Marketplace</div>
               <h2 className={styles.title}>
                 Create New Bounty
               </h2>
@@ -311,7 +310,7 @@ export default function PostTask() {
                     setExpiresAt(e.target.value);
                     setDeadlineMode('custom');
                   }}
-                  className="antares-input glass animate-rise"
+                  className={`antares-input glass animate-rise ${styles.dateInput}`}
                   required
                 />
               )}

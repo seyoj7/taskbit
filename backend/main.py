@@ -388,12 +388,6 @@ def _get_task_or_404(task_id: int, db: Session) -> Task:
             detail=f"Task with id {task_id} not found",
         )
         
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if task.status == "posted" and task.expires_at < now:
-        task.status = "archived"
-        db.commit()
-        db.refresh(task)
-        
     return task
 
 
@@ -685,16 +679,49 @@ def list_tasks(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    expired_posted = db.query(Task).filter(Task.status == "posted", Task.expires_at < now).all()
-    if expired_posted:
-        for t in expired_posted:
-            t.status = "archived"
-        db.commit()
-
     query = db.query(Task)
     if task_status:
-        query = query.filter(Task.status == task_status)
+        if task_status == "approved":
+            # Include tasks explicitly approved, plus legacy archived/paid tasks
+            # that have a payment tx_hash (i.e., were approved before the fix)
+            from sqlalchemy import or_, and_
+            query = query.filter(
+                or_(
+                    Task.status == "approved",
+                    and_(
+                        Task.status.in_(["paid", "archived"]),
+                        Task.tx_hash.isnot(None),
+                    ),
+                )
+            )
+        elif task_status == "failed":
+            from sqlalchemy import or_, and_
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            query = query.filter(
+                or_(
+                    Task.status == "rejected",
+                    Task.status == "refunded",
+                    and_(
+                        Task.status == "archived",
+                        Task.refund_tx_hash.isnot(None)
+                    ),
+                    and_(
+                        Task.status == "funded",
+                        Task.expires_at < now
+                    )
+                )
+            )
+        else:
+            if task_status == "funded":
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                query = query.filter(
+                    Task.status == "funded",
+                    Task.expires_at >= now
+                )
+            else:
+                query = query.filter(Task.status == task_status)
     return query.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
 
 
@@ -874,7 +901,7 @@ def approve_task(
     """
     Poster approves submitted work and records on-chain payment release.
     Verifies the releasePayment tx on-chain before updating state.
-    Transitions: submitted → approved → paid → archived (all in one step)
+    Transitions: submitted → approved
     """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
@@ -903,12 +930,7 @@ def approve_task(
         )
 
     task.tx_hash = payload.tx_hash
-    task.status = "paid"
-    db.commit()
-    db.refresh(task)
-
-    # Auto-archive after payment
-    task.status = "archived"
+    task.status = "approved"
     db.commit()
     db.refresh(task)
     return task
@@ -953,9 +975,9 @@ def refund_expired_task(
     db: Session = Depends(get_db),
 ):
     """
-    Refund an expired, funded task that has NO submissions.
+    Refund an expired, funded task.
     Verifies the on-chain refundTask tx before updating state.
-    Transitions: funded → refunded → archived
+    Transitions: funded/rejected → refunded → archived
 
     The smart contract enforces:
     - Task must be past expiry
@@ -963,7 +985,11 @@ def refund_expired_task(
     """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
-    _assert_status(task, "funded", "refund")
+    if task.status not in ("funded", "rejected"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot refund a task with status '{task.status}'.",
+        )
 
     # Double-check: task must be expired
     now = datetime.now(timezone.utc).replace(tzinfo=None)
