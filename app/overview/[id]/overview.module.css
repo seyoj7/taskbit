@@ -1026,3 +1026,147 @@
   flex-direction: column;
   gap: 12px;
 }
+
+/* ── Submissions List ──────────────────────────────────────── */
+
+.submissionsSection {
+  margin-top: 24px;
+}
+
+.submissionsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.submissionsLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+.submissionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.submissionCard {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  transition: border-color 0.2s ease;
+}
+
+.submissionCard:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.submissionCardSelected {
+  border-color: rgba(16, 185, 129, 0.4);
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+.submissionTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.submissionWorker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.submissionBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.submissionStatusPending {
+  background-color: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.submissionStatusSelected {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: var(--up);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.submissionStatusRejected {
+  background-color: rgba(239, 68, 68, 0.08);
+  color: var(--down);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.submissionProofLink {
+  display: block;
+  font-size: 13px;
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.15);
+  text-underline-offset: 3px;
+  word-break: break-all;
+  font-weight: 500;
+  transition: text-decoration-color 0.2s;
+}
+
+.submissionProofLink:hover {
+  text-decoration-color: var(--accent);
+}
+
+.submissionRejectionReason {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--down);
+  padding: 6px 10px;
+  border-radius: 6px;
+  background-color: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.submissionMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.submissionDate {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.submissionActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.submissionApproveBtn {
+  flex: 1;
+  height: 36px;
+  font-size: 13px;
+}
+
+.submissionRejectBtn {
+  height: 36px;
+  font-size: 13px;
+  padding: 0 16px;
+  color: var(--down);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+

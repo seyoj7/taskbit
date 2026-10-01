@@ -2,7 +2,7 @@
 
 **Arc-Native Proof-of-Work Marketplace with USDC Smart Contract Escrow**
 
-Taskbit is a decentralized micro-bounty marketplace built for the Arc network. Project creators post small, verifiable tasks with USDC bounties held in a trustless smart contract escrow. Builders claim tasks, complete the work, and submit verifiable GitHub proofs (Pull Requests or Commits). Once work is verified and approved, escrowed USDC is released directly to the worker on-chain.
+Taskbit is a decentralized micro-bounty marketplace built for the Arc network. Project creators post small, verifiable tasks with USDC bounties held in a trustless smart contract escrow. Multiple builders can submit verifiable GitHub proofs (Pull Requests or Commits) for each task. The poster reviews all submissions, selects the best one, and approves it — releasing the escrowed USDC directly to the chosen worker on-chain. If no workers submit by the deadline, the poster can reclaim their funds.
 
 ---
 
@@ -54,35 +54,39 @@ Taskbit is a decentralized micro-bounty marketplace built for the Arc network. P
 
 The `TaskEscrow` smart contract enforces a secure escrow lifecycle where task registration and USDC funding happen atomically in a single transaction:
 
+```text
+POSTED → FUNDED → (workers submit PRs) → APPROVED → PAID → ARCHIVED
+                                               ↑
+             Poster selects best worker ───────┘
+
+FUNDED → (no submissions + expired) → REFUNDED → ARCHIVED
+```
+
 1. **Create & Fund Task**:
    - Creator registers a task and locks the USDC bounty in the escrow contract in one atomic transaction. The creator must approve the USDC transfer first:
      ```solidity
      usdc.approve(address(taskEscrow), bounty);
      taskEscrow.createTask(taskId, bounty, expiryTimestamp);
      ```
-   - Alternatively, a task can be created with a pre-assigned worker:
-     ```solidity
-     taskEscrow.createTask(taskId, workerAddress, bounty, expiryTimestamp);
-     ```
 
-2. **Assign Worker** (if not pre-assigned):
-   - When a worker claims the task, the creator assigns their wallet address on-chain:
-     ```solidity
-     taskEscrow.assignWorker(taskId, workerAddress);
-     ```
-
-3. **Submit Work**:
-   - The assigned worker submits work on-chain to prevent the creator from refunding while work is in progress:
+2. **Workers Submit Proofs**:
+   - Multiple workers can submit GitHub PR proofs for the same task before the deadline. Each worker also submits work on-chain to prevent premature refunds:
      ```solidity
      taskEscrow.submitWork(taskId);
      ```
 
+3. **Poster Reviews & Selects**:
+   - The poster reviews all submissions and selects the best one. The chosen worker is assigned on-chain:
+     ```solidity
+     taskEscrow.assignWorker(taskId, selectedWorkerAddress);
+     ```
+
 4. **Release or Refund**:
-   - **Work Approved**: Once the worker submits proof (verified via GitHub API), the creator approves and releases the bounty to the worker:
+   - **Work Approved**: The poster approves the selected submission and releases the bounty to that worker:
      ```solidity
      taskEscrow.releasePayment(taskId);
      ```
-   - **Task Expired & Refunded**: If the task expires with no work submitted, the creator can refund the escrowed USDC back to their wallet:
+   - **Task Expired & Refunded**: If the task expires with no submissions (or all submissions are rejected), the creator can refund the escrowed USDC:
      ```solidity
      taskEscrow.refundTask(taskId);
      ```
@@ -96,7 +100,7 @@ Taskbit uses **EIP-191 challenge-response personal signatures** to prevent walle
 1. The frontend requests a cryptographic challenge: `POST /users/auth/challenge`
 2. The user signs the challenge message in their wallet (`personal_sign`).
 3. The backend verifies the signature on-chain with `w3.eth.account.recover_message` and issues a secure signed JWT access token (`POST /users/auth/verify`).
-4. Protected API mutations (claiming tasks, submitting proofs, approving work, deleting tasks) require a valid `Bearer <token>` matching the caller's address.
+4. Protected API mutations (submitting proofs, approving/rejecting submissions, refunding tasks) require a valid `Bearer <token>` matching the caller's address.
 
 ---
 

@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, Integer, String, Text, Numeric, Enum, DateTime, ForeignKey, func, text, inspect
+from sqlalchemy import create_engine, Column, Integer, String, Text, Numeric, Enum, DateTime, ForeignKey, UniqueConstraint, func, text, inspect
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, relationship
 
 # Load .env from project root (one level up from backend/)
@@ -52,26 +52,33 @@ class User(Base):
     # Relationships
     tasks_posted = relationship("Task", back_populates="poster", foreign_keys="Task.poster_id")
     tasks_claimed = relationship("Task", back_populates="worker", foreign_keys="Task.worker_id")
+    submissions = relationship("Submission", back_populates="worker", foreign_keys="Submission.worker_id")
 
 
-# ── Task Lifecycle (first-come-first-serve) ───────────────────
+# ── Task Lifecycle (multi-worker submissions) ────────────────
 #
-#   POSTED → FUNDED → SUBMITTED → APPROVED → PAID → ARCHIVED
-#                         ↓                          ↑
-#                     REJECTED  ─→ (resubmit) ──────┘
+#   POSTED → FUNDED → (workers submit) → APPROVED → PAID → ARCHIVED
+#                                              ↑
+#           Poster reviews & selects best ──────┘
 #
-#   FUNDED → (expired, no submissions) → REFUNDED → ARCHIVED
+#   FUNDED → (no submissions + expired) → REFUNDED → ARCHIVED
 #
 
 TASK_STATUSES = (
     "posted",     # Task created in DB, not yet funded on-chain
     "funded",     # Escrow funded on-chain, open for workers to submit
-    "submitted",  # Worker submitted proof (GitHub PR/commit)
-    "approved",   # Poster approved the work, pending on-chain payment
-    "rejected",   # Poster rejected the proof; worker can resubmit
+    "submitted",  # At least one worker has submitted proof
+    "approved",   # Poster approved a submission, pending on-chain payment
+    "rejected",   # All submissions rejected; workers can still submit if not expired
     "paid",       # On-chain payment verified, USDC released to worker
     "refunded",   # On-chain refund verified, USDC returned to poster
     "archived",   # Terminal state after payment or refund
+)
+
+SUBMISSION_STATUSES = (
+    "pending",    # Awaiting poster review
+    "selected",   # Poster selected this submission as the winner
+    "rejected",   # Poster rejected this submission
 )
 
 
@@ -101,13 +108,34 @@ class Task(Base):
     # Relationships
     poster = relationship("User", back_populates="tasks_posted", foreign_keys=[poster_id])
     worker = relationship("User", back_populates="tasks_claimed", foreign_keys=[worker_id])
+    submissions = relationship("Submission", back_populates="task", foreign_keys="Submission.task_id", order_by="Submission.created_at.desc()")
 
     @property
     def poster_wallet_address(self) -> str:
         return self.poster.wallet_address if self.poster else ""
 
 
-def init_db():
+class Submission(Base):
+    __tablename__ = "submissions"
+    __table_args__ = (
+        UniqueConstraint("task_id", "worker_id", name="uq_task_worker"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, index=True)
+    worker_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    proof = Column(Text, nullable=False)
+    status = Column(String(20), default="pending", nullable=False)
+    rejection_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    task = relationship("Task", back_populates="submissions", foreign_keys=[task_id])
+    worker = relationship("User", back_populates="submissions", foreign_keys=[worker_id])
+
+
+def init_db():  # noqa: C901
     """Initializes tables and ensures schema migrations."""
     Base.metadata.create_all(bind=engine)
 

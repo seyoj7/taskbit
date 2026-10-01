@@ -25,6 +25,8 @@ export type TaskStatus =
   | 'refunded'
   | 'archived';
 
+export type SubmissionStatus = 'pending' | 'selected' | 'rejected';
+
 export interface Task {
   id: number;
   title: string;
@@ -40,6 +42,19 @@ export interface Task {
   fund_tx_hash: string | null;
   refund_tx_hash: string | null;
   expires_at: string;
+  created_at: string;
+  updated_at: string;
+  submission_count: number;
+}
+
+export interface Submission {
+  id: number;
+  task_id: number;
+  worker_id: number;
+  worker_wallet_address: string;
+  proof: string;
+  status: SubmissionStatus;
+  rejection_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +87,14 @@ function normalizeTaskDates(task: Task): Task {
     expires_at: ensureUtcSuffix(task.expires_at),
     created_at: ensureUtcSuffix(task.created_at),
     updated_at: ensureUtcSuffix(task.updated_at),
+  };
+}
+
+function normalizeSubmissionDates(sub: Submission): Submission {
+  return {
+    ...sub,
+    created_at: ensureUtcSuffix(sub.created_at),
+    updated_at: ensureUtcSuffix(sub.updated_at),
   };
 }
 
@@ -242,7 +265,18 @@ export async function recordTaskFunding(
   return res.json().then(normalizeTaskDates);
 }
 
-export async function submitTaskWork(taskId: number, wallet_address: string, proof: string): Promise<Task> {
+// ── Submissions ─────────────────────────────────────────────
+
+export async function fetchTaskSubmissions(taskId: number): Promise<Submission[]> {
+  const res = await fetch(`${API_URL}/tasks/${taskId}/submissions`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch submissions');
+  }
+  const subs: Submission[] = await res.json();
+  return subs.map(normalizeSubmissionDates);
+}
+
+export async function submitTaskWork(taskId: number, wallet_address: string, proof: string): Promise<Submission> {
   const res = await fetch(`${API_URL}/tasks/${taskId}/submit`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
@@ -256,14 +290,19 @@ export async function submitTaskWork(taskId: number, wallet_address: string, pro
     } catch {}
     throw new Error(errMsg);
   }
-  return res.json().then(normalizeTaskDates);
+  return res.json().then(normalizeSubmissionDates);
 }
 
-export async function approveTask(taskId: number, wallet_address: string, tx_hash: string): Promise<Task> {
+export async function approveTask(
+  taskId: number,
+  wallet_address: string,
+  tx_hash: string,
+  submission_id: number
+): Promise<Task> {
   const res = await fetch(`${API_URL}/tasks/${taskId}/approve`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ wallet_address, tx_hash }),
+    body: JSON.stringify({ wallet_address, tx_hash, submission_id }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -272,21 +311,22 @@ export async function approveTask(taskId: number, wallet_address: string, tx_has
   return res.json().then(normalizeTaskDates);
 }
 
-export async function rejectTask(
+export async function rejectSubmission(
   taskId: number,
   wallet_address: string,
+  submission_id: number,
   reason?: string
-): Promise<Task> {
+): Promise<Submission> {
   const res = await fetch(`${API_URL}/tasks/${taskId}/reject`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ wallet_address, reason }),
+    body: JSON.stringify({ wallet_address, submission_id, reason }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || 'Failed to reject task');
+    throw new Error(err.detail || 'Failed to reject submission');
   }
-  return res.json().then(normalizeTaskDates);
+  return res.json().then(normalizeSubmissionDates);
 }
 
 export async function refundExpiredTask(

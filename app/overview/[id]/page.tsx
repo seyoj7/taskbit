@@ -12,12 +12,14 @@ import {
   fetchTaskById,
   fetchUserById,
   fetchTaskEscrow,
+  fetchTaskSubmissions,
   recordTaskFunding,
   submitTaskWork,
   approveTask,
-  rejectTask,
+  rejectSubmission,
   refundExpiredTask,
   Task,
+  Submission,
   User,
 } from '../../components/api';
 import { useWallet, ARC_TESTNET_CHAIN_ID } from '../../components/WalletProvider';
@@ -78,11 +80,30 @@ function getStatusBadgeClass(status: string, isExpired: boolean = false): string
   }
 }
 
+function getSubmissionStatusLabel(status: string): string {
+  switch (status) {
+    case 'pending': return 'Pending Review';
+    case 'selected': return 'Selected ✓';
+    case 'rejected': return 'Rejected';
+    default: return status;
+  }
+}
+
+function getSubmissionStatusClass(status: string): string {
+  switch (status) {
+    case 'pending': return styles.submissionStatusPending;
+    case 'selected': return styles.submissionStatusSelected;
+    case 'rejected': return styles.submissionStatusRejected;
+    default: return '';
+  }
+}
+
 export default function TaskDetail({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const router = useRouter();
   const { account, user, connectWallet, switchToArcTestnet } = useWallet();
   const [task, setTask] = useState<Task | null>(null);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [workerUser, setWorkerUser] = useState<User | null>(null);
   const [posterUser, setPosterUser] = useState<User | null>(null);
   const [onchainEscrow, setOnchainEscrow] = useState<any | null>(null);
@@ -94,6 +115,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [copiedTx, setCopiedTx] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingSubmissionId, setRejectingSubmissionId] = useState<number | null>(null);
+  const [approvingSubmissionId, setApprovingSubmissionId] = useState<number | null>(null);
   const [alertModal, setAlertModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -142,6 +165,14 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
         }
       }
 
+      // Fetch submissions
+      try {
+        const subs = await fetchTaskSubmissions(taskId);
+        setSubmissions(subs);
+      } catch (e) {
+        console.warn('Could not fetch submissions:', e);
+      }
+
       try {
         const escrowStatus = await fetchTaskEscrow(taskId);
         setOnchainEscrow(escrowStatus.onchain);
@@ -185,6 +216,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       }
 
       await submitTaskWork(task!.id, account, proof);
+      setProof('');
       await loadTask();
     } catch (err: any) {
       showAlert(err.message || "Failed to submit work", "Submission Error", "danger");
@@ -267,11 +299,15 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const handleApproveAndPay = async () => {
+  const handleApproveSubmission = async (submissionId: number) => {
     if (!account) return connectWallet();
-    if (!task?.worker_id) return showAlert("No worker assigned.", "Action Unavailable", "warning");
+    if (!task) return;
+
+    const submission = submissions.find(s => s.id === submissionId);
+    if (!submission) return showAlert("Submission not found.", "Error", "danger");
 
     setIsSubmitting(true);
+    setApprovingSubmissionId(submissionId);
     setTxStatus("Initializing Arc transaction...");
 
     try {
@@ -312,9 +348,9 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
         await createTx.wait();
       }
 
-      // 2. Ensure worker is assigned on-chain
-      const targetWorkerWallet = workerUser?.wallet_address;
-      if (!targetWorkerWallet) throw new Error("Could not determine assigned worker's wallet address.");
+      // 2. Assign the selected worker on-chain
+      const targetWorkerWallet = submission.worker_wallet_address;
+      if (!targetWorkerWallet) throw new Error("Could not determine worker's wallet address.");
 
       if (!onchainTask || onchainTask.worker.toLowerCase() !== targetWorkerWallet.toLowerCase()) {
         setTxStatus("Assigning worker to Escrow on-chain...");
@@ -330,9 +366,9 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
 
       const txHash = receipt.hash || releaseTx.hash;
 
-      // 4. Record approval + payment in backend (auto-archives)
+      // 4. Record approval + payment in backend
       setTxStatus("Recording payment in Taskbit...");
-      await approveTask(task.id, account, txHash);
+      await approveTask(task.id, account, txHash, submissionId);
       await loadTask();
     } catch (err: any) {
       console.error(err);
@@ -340,57 +376,34 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     } finally {
       setIsSubmitting(false);
       setTxStatus(null);
+      setApprovingSubmissionId(null);
     }
   };
 
-  const handleRejectClick = () => {
+  const handleRejectClick = (submissionId: number) => {
     if (!account) return connectWallet();
+    setRejectingSubmissionId(submissionId);
     setShowRejectModal(true);
   };
 
   const handleConfirmReject = async () => {
     if (!account) return connectWallet();
+    if (rejectingSubmissionId === null) return;
 
     setIsSubmitting(true);
     try {
-      await rejectTask(task!.id, account, rejectionReason || undefined);
+      await rejectSubmission(task!.id, account, rejectingSubmissionId, rejectionReason || undefined);
       setShowRejectModal(false);
+      setRejectingSubmissionId(null);
+      setRejectionReason('');
 
-      // Auto-refund if task is expired
+      // Auto-refund if task is expired and all submissions rejected
       const expired = task ? new Date(task.expires_at).getTime() < Date.now() : false;
-      if (expired) {
-        try {
-          setTxStatus("Task expired — processing automatic refund...");
-          if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
-          const provider = new ethers.BrowserProvider((window as any).ethereum);
-          const network = await provider.getNetwork();
-          if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
-            setTxStatus("Switching wallet to Arc Testnet...");
-            const switched = await switchToArcTestnet();
-            if (!switched) throw new Error("Could not switch to Arc Testnet.");
-          }
-          const signer = await provider.getSigner();
-          const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
-
-          setTxStatus("Requesting escrow refund in wallet...");
-          const refundTx = await escrow.refundTask(task!.id);
-          setTxStatus("Waiting for refund confirmation...");
-          const receipt = await refundTx.wait();
-          const refundTxHash = receipt.hash || refundTx.hash;
-
-          setTxStatus("Recording refund...");
-          await refundExpiredTask(task!.id, account, refundTxHash);
-        } catch (refundErr: any) {
-          console.warn("Auto-refund after rejection failed:", refundErr);
-          // Non-blocking: rejection still succeeded, refund can be done manually
-        } finally {
-          setTxStatus(null);
-        }
-      }
-
+      // Reload to get updated state first
       await loadTask();
+
     } catch (err: any) {
-      showAlert(err.message || "Failed to reject task", "Rejection Failed", "danger");
+      showAlert(err.message || "Failed to reject submission", "Rejection Failed", "danger");
     } finally {
       setIsSubmitting(false);
     }
@@ -478,22 +491,28 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   }
 
   const isPoster = user?.id === task.poster_id;
-  const isWorker = user?.id === task.worker_id;
   const isExpired = task ? new Date(task.expires_at).getTime() < Date.now() : false;
   const isTerminal = ['approved', 'paid', 'refunded', 'archived'].includes(task.status);
 
-  const showRefund = Boolean(account && isPoster && ['funded', 'rejected'].includes(task.status));
+  // Check if current user already has a submission
+  const mySubmission = account ? submissions.find(
+    s => s.worker_wallet_address.toLowerCase() === account.toLowerCase()
+  ) : null;
+
+  const pendingSubmissions = submissions.filter(s => s.status === 'pending');
+  const hasSubmissions = submissions.length > 0;
+
+  const showRefund = Boolean(account && isPoster && ['funded', 'submitted', 'rejected'].includes(task.status));
   const showConnect = Boolean(!account && !isTerminal);
   const showFund = Boolean(account && isPoster && task.status === 'posted');
-  const showSubmit = Boolean(account && (
-    (task.status === 'funded' && !isPoster && !isExpired) ||
-    (task.status === 'rejected' && isWorker && !isExpired)
-  ));
-  const showApprove = Boolean(account && task.status === 'submitted' && isPoster);
-  const showPosterWait = Boolean(account && isPoster && task.status === 'funded' && !isExpired);
+  const showSubmit = Boolean(account && !isPoster && !isExpired &&
+    ['funded', 'submitted', 'rejected'].includes(task.status) &&
+    (!mySubmission || mySubmission.status === 'rejected')
+  );
+  const showPosterWait = Boolean(account && isPoster && task.status === 'funded' && !isExpired && !hasSubmissions);
   const showTerminal = Boolean(isTerminal);
 
-  const hasActions = showRefund || showConnect || showFund || showSubmit || showApprove || showPosterWait || showTerminal;
+  const hasActions = showRefund || showConnect || showFund || showSubmit || showPosterWait || showTerminal;
 
   return (
     <>
@@ -564,33 +583,42 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   </div>
                 </div>
 
-                {task.worker_id && (
+                {/* Show selected worker (after approval) */}
+                {task.worker_id && workerUser && (
                   <div className={styles.workerBlock}>
-                    <span className={styles.metaLabel}>ASSIGNED WORKER</span>
+                    <span className={styles.metaLabel}>SELECTED WORKER</span>
                     <div className={styles.metaValueRow}>
-                      <span className={workerUser ? styles.metaValueMono : styles.metaValueText}>
-                        {workerUser ? `${workerUser.wallet_address.slice(0, 6)}…${workerUser.wallet_address.slice(-4)}` : `User #${task.worker_id}`}
+                      <span className={styles.metaValueMono}>
+                        {`${workerUser.wallet_address.slice(0, 6)}…${workerUser.wallet_address.slice(-4)}`}
                       </span>
-                      {workerUser?.wallet_address && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopyTx(workerUser.wallet_address, 'worker')}
-                          title={copiedTx === 'worker' ? 'Copied address!' : `Copy worker address: ${workerUser.wallet_address}`}
-                          className={`${styles.copyBtnInline} ${copiedTx === 'worker' ? styles.copyBtnActive : ''}`}
-                        >
-                          {copiedTx === 'worker' ? (
-                            <svg viewBox="0 0 24 24" width="12" height="12" stroke="var(--accent)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          ) : (
-                            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                            </svg>
-                          )}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleCopyTx(workerUser.wallet_address, 'worker')}
+                        title={copiedTx === 'worker' ? 'Copied address!' : `Copy worker address: ${workerUser.wallet_address}`}
+                        className={`${styles.copyBtnInline} ${copiedTx === 'worker' ? styles.copyBtnActive : ''}`}
+                      >
+                        {copiedTx === 'worker' ? (
+                          <svg viewBox="0 0 24 24" width="12" height="12" stroke="var(--accent)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                        )}
+                      </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Submission count badge */}
+                {hasSubmissions && !task.worker_id && (
+                  <div className={styles.workerBlock}>
+                    <span className={styles.metaLabel}>SUBMISSIONS</span>
+                    <span className={styles.metaValueText}>
+                      {submissions.length} worker{submissions.length !== 1 ? 's' : ''} submitted
+                    </span>
                   </div>
                 )}
 
@@ -612,15 +640,110 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </div>
               </div>
 
-              {/* Submitted proof */}
-              {task.proof && (
+              {/* ── Submissions List ─────────────────────────────── */}
+              {hasSubmissions && (
+                <div className={`animate-rise ${styles.submissionsSection}`}>
+                  <div className={styles.submissionsHeader}>
+                    <span className={styles.submissionsLabel}>
+                      SUBMISSIONS ({submissions.length})
+                    </span>
+                  </div>
+
+                  <div className={styles.submissionsList}>
+                    {submissions.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className={`${styles.submissionCard} ${sub.status === 'selected' ? styles.submissionCardSelected : ''}`}
+                      >
+                        <div className={styles.submissionTop}>
+                          <div className={styles.submissionWorker}>
+                            <span className={styles.metaValueMono} title={sub.worker_wallet_address}>
+                              {sub.worker_wallet_address
+                                ? `${sub.worker_wallet_address.slice(0, 6)}…${sub.worker_wallet_address.slice(-4)}`
+                                : `Worker #${sub.worker_id}`}
+                            </span>
+                            {sub.worker_wallet_address && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopyTx(sub.worker_wallet_address, `sub-${sub.id}`)}
+                                title="Copy worker address"
+                                className={`${styles.copyBtnInline} ${copiedTx === `sub-${sub.id}` ? styles.copyBtnActive : ''}`}
+                              >
+                                {copiedTx === `sub-${sub.id}` ? (
+                                  <svg viewBox="0 0 24 24" width="12" height="12" stroke="var(--accent)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                ) : (
+                                  <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                          <span className={`${styles.submissionBadge} ${getSubmissionStatusClass(sub.status)}`}>
+                            {getSubmissionStatusLabel(sub.status)}
+                          </span>
+                        </div>
+
+                        <a
+                          href={sub.proof}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.submissionProofLink}
+                        >
+                          {sub.proof} ↗
+                        </a>
+
+                        {sub.rejection_reason && sub.status === 'rejected' && (
+                          <div className={styles.submissionRejectionReason}>
+                            Rejected: {sub.rejection_reason}
+                          </div>
+                        )}
+
+                        <div className={styles.submissionMeta}>
+                          <span className={styles.submissionDate}>
+                            Submitted {new Date(sub.created_at).toLocaleString(undefined, { hour12: true })}
+                          </span>
+                        </div>
+
+                        {/* Poster actions per submission */}
+                        {isPoster && sub.status === 'pending' && !isTerminal && (
+                          <div className={styles.submissionActions}>
+                            <button
+                              className={`antares-btn-accent ${styles.submissionApproveBtn}`}
+                              onClick={() => handleApproveSubmission(sub.id)}
+                              disabled={isSubmitting}
+                            >
+                              {approvingSubmissionId === sub.id
+                                ? (txStatus || 'Processing…')
+                                : 'Select & Pay'}
+                            </button>
+                            <button
+                              className={`antares-btn-surface ${styles.submissionRejectBtn}`}
+                              onClick={() => handleRejectClick(sub.id)}
+                              disabled={isSubmitting}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Show selected proof after approval */}
+              {task.proof && isTerminal && (
                 <div className={`animate-rise ${styles.proofSection}`}>
                   <div className={styles.proofHeaderRow}>
                     <span className={styles.proofLabel}>
-                      SUBMITTED PROOF (GITHUB / PR)
+                      SELECTED PROOF (GITHUB / PR)
                     </span>
                     <span className={`antares-badge ${styles.proofBadge}`}>
-                      {task.status === 'submitted' ? 'Ready for Review' : task.status === 'rejected' ? 'Rejected' : 'Reviewed'}
+                      Approved
                     </span>
                   </div>
                   <a
@@ -631,18 +754,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   >
                     {task.proof} ↗
                   </a>
-                </div>
-              )}
-
-              {/* Rejection reason */}
-              {task.rejection_reason && task.status === 'rejected' && (
-                <div className={`animate-rise ${styles.rejectionSection}`}>
-                  <div className={styles.rejectionLabel}>
-                    REJECTION REASON
-                  </div>
-                  <p className={styles.rejectionText}>
-                    {task.rejection_reason}
-                  </p>
                 </div>
               )}
 
@@ -715,8 +826,8 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
               {hasActions && (
                 <div className={styles.actionsDivider}>
 
-                  {/* Refund funded task (disabled until expired) */}
-                {account && isPoster && ['funded', 'rejected'].includes(task.status) && (
+                  {/* Refund task (disabled until expired) */}
+                {account && isPoster && ['funded', 'submitted', 'rejected'].includes(task.status) && (
                   <div className={`animate-rise ${styles.actionWrapper}`}>
                     <button
                       className={`antares-btn-surface ${styles.refundBtnStyled} ${!isExpired ? styles.refundBtnDisabled : ''}`}
@@ -756,12 +867,12 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   </div>
                 )}
 
-                {/* Worker: submit proof (funded = first-come-first-serve, or rejected for resubmission) */}
+                {/* Worker: submit proof */}
                 {showSubmit && (
                   <div className={`animate-rise ${styles.actionWrapper}`}>
                     <div>
                       <label className={styles.submitLabel}>
-                        {task.status === 'rejected' ? 'Resubmit Pull Request / Proof Link' : 'Submit Pull Request / Proof Link'}
+                        {mySubmission?.status === 'rejected' ? 'Resubmit Pull Request / Proof Link' : 'Submit Pull Request / Proof Link'}
                       </label>
                       <input
                         type="url"
@@ -776,37 +887,17 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                       onClick={handleSubmitWork}
                       disabled={isSubmitting || !proof}
                     >
-                      {isSubmitting ? 'Submitting…' : task.status === 'rejected' ? 'Resubmit Proof' : 'Submit Proof for Review'}
+                      {isSubmitting ? 'Submitting…' : mySubmission?.status === 'rejected' ? 'Resubmit Proof' : 'Submit Proof for Review'}
                     </button>
                   </div>
                 )}
 
-                {/* Poster: approve & pay or reject (submitted) */}
-                {account && task.status === 'submitted' && isPoster && (
-                  <div className={`animate-rise ${styles.actionWrapper}`}>
-                    <button
-                      className={`antares-btn-accent ${styles.actionBtn}`}
-                      onClick={handleApproveAndPay}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? (txStatus || 'Processing…') : 'Approve & Release USDC'}
-                    </button>
-                    <div className={styles.actionWrapper}>
-                      <input
-                        type="text"
-                        placeholder="Optional rejection reason..."
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                        className={`antares-input glass ${styles.rejectionInputSpaced}`}
-                      />
-                      <button
-                        className={`antares-btn-surface ${styles.rejectBtn}`}
-                        onClick={handleRejectClick}
-                        disabled={isSubmitting}
-                      >
-                        Reject Submission
-                      </button>
-                    </div>
+                {/* Poster waiting for submissions */}
+                {showPosterWait && (
+                  <div className={styles.connectPromptCenter}>
+                    <p className={styles.connectMsg}>
+                      Your task is live! Waiting for workers to submit their proofs.
+                    </p>
                   </div>
                 )}
 
@@ -936,14 +1027,23 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       <ConfirmModal
         isOpen={showRejectModal}
         title="Reject Submission"
-        message="Are you sure you want to reject this submission? The worker can still resubmit."
+        message="Are you sure you want to reject this submission? The worker can resubmit with updated proof."
         confirmText="Reject"
         cancelText="Cancel"
         variant="danger"
         isLoading={isSubmitting}
-        onCancel={() => !isSubmitting && setShowRejectModal(false)}
+        onCancel={() => { if (!isSubmitting) { setShowRejectModal(false); setRejectingSubmissionId(null); } }}
         onConfirm={handleConfirmReject}
-      />
+      >
+        <input
+          type="text"
+          placeholder="Optional rejection reason..."
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+          className="antares-input glass"
+          style={{ marginTop: '12px', width: '100%' }}
+        />
+      </ConfirmModal>
 
       {alertModal && (
         <ConfirmModal

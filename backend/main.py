@@ -21,7 +21,7 @@ from eth_account.messages import encode_defunct
 from web3 import Web3
 import uvicorn
 
-from database import engine, get_db, init_db, Base, User, Task, TASK_STATUSES
+from database import engine, get_db, init_db, Base, User, Task, Submission, TASK_STATUSES, SUBMISSION_STATUSES
 from escrow import (
     check_escrow_contract_health,
     get_onchain_escrow_task,
@@ -163,6 +163,21 @@ class TaskResponse(BaseModel):
     expires_at: datetime
     created_at: datetime
     updated_at: datetime
+    submission_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class SubmissionResponse(BaseModel):
+    id: int
+    task_id: int
+    worker_id: int
+    worker_wallet_address: str = ""
+    proof: str
+    status: str
+    rejection_reason: Optional[str]
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -179,6 +194,7 @@ class _WalletActionBase(BaseModel):
 
 
 class TaskClaim(_WalletActionBase):
+    """Deprecated: kept for backward compatibility but no longer used."""
     pass
 
 
@@ -202,11 +218,12 @@ class TaskFund(_WalletActionBase):
 
 
 class TaskApprove(_WalletActionBase):
+    submission_id: int = Field(..., description="ID of the submission to approve")
     tx_hash: str = Field(..., min_length=66, max_length=66,
                          description="On-chain releasePayment tx hash (required)")
 
-
 class TaskReject(_WalletActionBase):
+    submission_id: int = Field(..., description="ID of the submission to reject")
     reason: Optional[str] = None
 
 
@@ -419,6 +436,32 @@ def _assert_not_archived(task: Task):
             status_code=status.HTTP_409_CONFLICT,
             detail="This task is archived and cannot be modified.",
         )
+
+
+def _task_to_response(task: Task, db: Session) -> dict:
+    """Build a TaskResponse-compatible dict with submission_count."""
+    count = db.query(Submission).filter(Submission.task_id == task.id).count()
+    resp = TaskResponse.model_validate(task).model_dump()
+    resp["submission_count"] = count
+    return resp
+
+
+def _get_submission_or_404(submission_id: int, db: Session) -> Submission:
+    sub = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Submission with id {submission_id} not found",
+        )
+    return sub
+
+
+def _submission_to_response(sub: Submission) -> dict:
+    """Build a SubmissionResponse-compatible dict with worker wallet."""
+    resp = SubmissionResponse.model_validate(sub).model_dump()
+    if sub.worker:
+        resp["worker_wallet_address"] = sub.worker.wallet_address
+    return resp
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -662,7 +705,7 @@ def create_task(
             db.add(task)
             db.commit()
             db.refresh(task)
-            return task
+            return _task_to_response(task, db)
         except IntegrityError:
             db.rollback()
             if attempt == max_attempts - 1:
@@ -721,12 +764,13 @@ def list_tasks(
                 )
             else:
                 query = query.filter(Task.status == task_status)
-    return query.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
+    return [_task_to_response(t, db) for t in query.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()]
 
 
 @app.get("/tasks/{task_id}", response_model=TaskResponse)
 def get_task(task_id: int, db: Session = Depends(get_db)):
-    return _get_task_or_404(task_id, db)
+    task = _get_task_or_404(task_id, db)
+    return _task_to_response(task, db)
 
 
 @app.get("/tasks/{task_id}/escrow")
@@ -746,12 +790,12 @@ def get_task_escrow(task_id: int, db: Session = Depends(get_db)):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  Task Lifecycle (first-come-first-serve):
-#    POSTED → FUNDED → SUBMITTED → APPROVED → PAID → ARCHIVED
-#                          ↓
-#                      REJECTED → (resubmit) → SUBMITTED
+#  Task Lifecycle (multi-worker submissions):
+#    POSTED → FUNDED → (workers submit) → APPROVED → PAID → ARCHIVED
+#                                               ↑
+#             Poster reviews & selects best ─────┘
 #
-#    FUNDED → (expired, no submissions) → REFUNDED → ARCHIVED
+#    FUNDED → (no submissions + expired) → REFUNDED → ARCHIVED
 # ═══════════════════════════════════════════════════════════════
 
 @app.patch("/tasks/{task_id}/fund", response_model=TaskResponse)
@@ -792,47 +836,29 @@ def record_task_funding(
     task.status = "funded"
     db.commit()
     db.refresh(task)
-    return task
+    return _task_to_response(task, db)
 
 
-@app.patch("/tasks/{task_id}/claim", response_model=TaskResponse)
-def claim_task(
+# ── Submissions ───────────────────────────────────────────────
+
+
+@app.get("/tasks/{task_id}/submissions", response_model=List[SubmissionResponse])
+def list_submissions(
     task_id: int,
-    payload: TaskClaim,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Worker claims a funded task.
-    Transitions: funded → claimed
-    """
-    assert_caller_permission(payload.wallet_address, current_user)
-    task = _get_task_or_404(task_id, db)
-    _assert_status(task, "funded", "claim")
-
-    # Check expiry
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if task.expires_at and task.expires_at < now:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Cannot claim: task has expired.",
-        )
-
-    worker = _get_user_by_wallet_or_404(payload.wallet_address, db)
-    if worker.id == task.poster_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot claim your own task",
-        )
-
-    task.worker_id = worker.id
-    task.status = "claimed"
-    db.commit()
-    db.refresh(task)
-    return task
+    """List all submissions for a task, newest first."""
+    _get_task_or_404(task_id, db)
+    subs = (
+        db.query(Submission)
+        .filter(Submission.task_id == task_id)
+        .order_by(Submission.created_at.desc())
+        .all()
+    )
+    return [_submission_to_response(s) for s in subs]
 
 
-@app.patch("/tasks/{task_id}/submit", response_model=TaskResponse)
+@app.patch("/tasks/{task_id}/submit", response_model=SubmissionResponse)
 def submit_proof(
     task_id: int,
     payload: TaskSubmitProof,
@@ -841,30 +867,19 @@ def submit_proof(
 ):
     """
     Worker submits proof of completed work with GitHub verification.
-    First-come-first-serve: any non-poster user can submit on a funded task.
-    Also allows resubmission after rejection by the assigned worker.
-    Transitions: funded → submitted, rejected → submitted
+    Multiple workers can submit on the same funded task.
+    A worker can update their submission if it was previously rejected.
     """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
-    _assert_status(task, ["funded", "rejected"], "submit proof")
+    _assert_status(task, ["funded", "submitted", "rejected"], "submit proof")
 
     worker = _get_user_by_wallet_or_404(payload.wallet_address, db)
-
-    # For funded tasks (first submission), auto-assign the worker
-    if task.status == "funded":
-        if worker.id == task.poster_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You cannot submit proof on your own task",
-            )
-    else:
-        # For rejected tasks, only the assigned worker can resubmit
-        if worker.id != task.worker_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only the assigned worker can resubmit proof",
-            )
+    if worker.id == task.poster_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot submit proof on your own task",
+        )
 
     # Check expiry
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -874,6 +889,7 @@ def submit_proof(
             detail="Cannot submit: task has expired.",
         )
 
+    # Verify GitHub link
     is_valid, reason = verify_github_link(payload.proof)
     if not is_valid:
         raise HTTPException(
@@ -881,13 +897,50 @@ def submit_proof(
             detail=f"GitHub proof verification failed: {reason}",
         )
 
-    task.worker_id = worker.id
-    task.proof = payload.proof
-    task.rejection_reason = None  # Clear previous rejection reason on resubmission
-    task.status = "submitted"
-    db.commit()
-    db.refresh(task)
-    return task
+    # Check if this worker already has a submission for this task
+    existing = (
+        db.query(Submission)
+        .filter(Submission.task_id == task_id, Submission.worker_id == worker.id)
+        .first()
+    )
+
+    if existing:
+        if existing.status == "selected":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Your submission has already been selected/approved.",
+            )
+        # Update existing submission (resubmission after rejection or update)
+        existing.proof = payload.proof
+        existing.status = "pending"
+        existing.rejection_reason = None
+        db.commit()
+        db.refresh(existing)
+
+        # Update task status to reflect there's a pending submission
+        if task.status == "rejected":
+            task.status = "submitted"
+            db.commit()
+
+        return _submission_to_response(existing)
+    else:
+        # Create new submission
+        submission = Submission(
+            task_id=task_id,
+            worker_id=worker.id,
+            proof=payload.proof,
+            status="pending",
+        )
+        db.add(submission)
+        db.commit()
+        db.refresh(submission)
+
+        # Update task status to submitted if it was funded
+        if task.status in ("funded", "rejected"):
+            task.status = "submitted"
+            db.commit()
+
+        return _submission_to_response(submission)
 
 
 @app.patch("/tasks/{task_id}/approve", response_model=TaskResponse)
@@ -898,9 +951,9 @@ def approve_task(
     db: Session = Depends(get_db),
 ):
     """
-    Poster approves submitted work and records on-chain payment release.
+    Poster approves a specific submission and records on-chain payment release.
     Verifies the releasePayment tx on-chain before updating state.
-    Transitions: submitted → approved
+    Sets the winning worker on the task and marks other submissions as rejected.
     """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
@@ -913,10 +966,24 @@ def approve_task(
             detail="Only the task poster can approve work",
         )
 
-    # Verify on-chain payment release
-    worker = db.query(User).filter(User.id == task.worker_id).first()
+    # Find the selected submission
+    submission = _get_submission_or_404(payload.submission_id, db)
+    if submission.task_id != task_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Submission does not belong to this task.",
+        )
+    if submission.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot approve a submission with status '{submission.status}'.",
+        )
+
+    # Get the winning worker
+    worker = db.query(User).filter(User.id == submission.worker_id).first()
     worker_wallet = worker.wallet_address if worker else None
 
+    # Verify on-chain payment release
     verification = verify_payment_release_tx(
         tx_hash=payload.tx_hash,
         task_id=task.id,
@@ -928,24 +995,37 @@ def approve_task(
             detail=f"On-chain payment verification failed: {verification.get('error')}",
         )
 
+    # Mark winning submission as selected
+    submission.status = "selected"
+
+    # Reject all other pending submissions
+    db.query(Submission).filter(
+        Submission.task_id == task_id,
+        Submission.id != submission.id,
+        Submission.status == "pending",
+    ).update({"status": "rejected", "rejection_reason": "Another submission was selected"})
+
+    # Update the task with the winning worker's info
+    task.worker_id = submission.worker_id
+    task.proof = submission.proof
     task.tx_hash = payload.tx_hash
     task.status = "approved"
     db.commit()
     db.refresh(task)
-    return task
+    return _task_to_response(task, db)
 
 
-@app.patch("/tasks/{task_id}/reject", response_model=TaskResponse)
-def reject_task(
+@app.patch("/tasks/{task_id}/reject", response_model=SubmissionResponse)
+def reject_submission(
     task_id: int,
     payload: TaskReject,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Poster rejects submitted work. Worker keeps assignment and can resubmit.
-    Rejection does NOT refund the poster — escrow stays locked.
-    Transitions: submitted → rejected
+    Poster rejects a specific submission.
+    If all submissions are rejected, task status reverts to 'rejected'
+    (workers can still submit new proofs if the task hasn't expired).
     """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
@@ -955,15 +1035,41 @@ def reject_task(
     if poster.id != task.poster_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the task poster can reject work",
+            detail="Only the task poster can reject submissions",
         )
 
-    task.status = "rejected"
-    task.rejection_reason = payload.reason
-    # Worker stays assigned — they can resubmit
+    # Find the submission to reject
+    submission = _get_submission_or_404(payload.submission_id, db)
+    if submission.task_id != task_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Submission does not belong to this task.",
+        )
+    if submission.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot reject a submission with status '{submission.status}'.",
+        )
+
+    submission.status = "rejected"
+    submission.rejection_reason = payload.reason
     db.commit()
-    db.refresh(task)
-    return task
+    db.refresh(submission)
+
+    # Check if there are any remaining pending submissions
+    pending_count = (
+        db.query(Submission)
+        .filter(Submission.task_id == task_id, Submission.status == "pending")
+        .count()
+    )
+
+    if pending_count == 0:
+        # All submissions rejected — revert task to 'rejected' so poster can refund
+        task.status = "rejected"
+        task.rejection_reason = "All submissions rejected"
+        db.commit()
+
+    return _submission_to_response(submission)
 
 
 @app.patch("/tasks/{task_id}/refund", response_model=TaskResponse)
@@ -974,17 +1080,16 @@ def refund_expired_task(
     db: Session = Depends(get_db),
 ):
     """
-    Refund an expired, funded task.
+    Refund an expired task.
     Verifies the on-chain refundTask tx before updating state.
-    Transitions: funded/rejected → refunded → archived
+    Transitions: funded/submitted/rejected → refunded → archived
 
     The smart contract enforces:
     - Task must be past expiry
-    - No work has been submitted on-chain
     """
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
-    if task.status not in ("funded", "rejected"):
+    if task.status not in ("funded", "submitted", "rejected"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot refund a task with status '{task.status}'.",
@@ -1022,7 +1127,7 @@ def refund_expired_task(
     task.status = "archived"
     db.commit()
     db.refresh(task)
-    return task
+    return _task_to_response(task, db)
 
 
 if __name__ == "__main__":
