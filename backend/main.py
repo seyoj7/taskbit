@@ -700,14 +700,13 @@ def list_tasks(
             now = datetime.now(timezone.utc).replace(tzinfo=None)
             query = query.filter(
                 or_(
-                    Task.status == "rejected",
                     Task.status == "refunded",
                     and_(
                         Task.status == "archived",
                         Task.refund_tx_hash.isnot(None)
                     ),
                     and_(
-                        Task.status == "funded",
+                        Task.status.in_(["funded", "rejected"]),
                         Task.expires_at < now
                     )
                 )
@@ -717,7 +716,7 @@ def list_tasks(
                 from datetime import datetime, timezone
                 now = datetime.now(timezone.utc).replace(tzinfo=None)
                 query = query.filter(
-                    Task.status == "funded",
+                    Task.status.in_(["funded", "rejected"]),
                     Task.expires_at >= now
                 )
             else:

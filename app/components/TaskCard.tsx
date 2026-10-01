@@ -72,6 +72,14 @@ export default function TaskCard({ id, title, description, bounty, status, poste
         </span>
       );
     }
+    if (s === 'expired') {
+      return (
+        <span className={styles.statusRefunded}>
+          <span className={styles.dot} />
+          Expired
+        </span>
+      );
+    }
     return (
       <span className={styles.idBadge}>
         {status}

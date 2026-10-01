@@ -42,7 +42,10 @@ const TASK_ESCROW_ABI = [
 
 // ── Status display helpers ──────────────────────────────────────
 
-function getStatusLabel(status: string): string {
+function getStatusLabel(status: string, isExpired: boolean = false): string {
+  if (status === 'rejected' && !isExpired) return 'Open';
+  if ((status === 'funded' || status === 'rejected') && isExpired) return 'Expired';
+
   const labels: Record<string, string> = {
     posted: 'Posted',
     funded: 'Open',
@@ -57,7 +60,10 @@ function getStatusLabel(status: string): string {
   return labels[status] || status;
 }
 
-function getStatusBadgeClass(status: string): string {
+function getStatusBadgeClass(status: string, isExpired: boolean = false): string {
+  if (status === 'rejected' && !isExpired) return 'antares-badge-lime';
+  if ((status === 'funded' || status === 'rejected') && isExpired) return 'antares-badge-surface';
+
   switch (status) {
     case 'posted': return 'antares-badge-surface';
     case 'funded': return 'antares-badge-lime';
@@ -513,9 +519,9 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                 </span>
 
                 <span
-                  className={`antares-badge ${getStatusBadgeClass(task.status)} ${styles.statusBadgeInline}`}
+                  className={`antares-badge ${getStatusBadgeClass(task.status, isExpired)} ${styles.statusBadgeInline}`}
                 >
-                  {getStatusLabel(task.status)}
+                  {getStatusLabel(task.status, isExpired)}
                 </span>
               </div>
 
@@ -587,11 +593,6 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                     </div>
                   </div>
                 )}
-
-                <div>
-                  <span className={styles.metaLabel}>ESCROW SECURITY</span>
-                  <span className={styles.metaValueAccent}>Arc Contract ✓</span>
-                </div>
 
                 <div>
                   <span className={styles.metaLabel}>DEADLINE</span>

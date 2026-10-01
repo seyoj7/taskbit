@@ -56,7 +56,7 @@ export default function Dashboard() {
   }, [tasks]);
 
   const openTasksCount = useMemo(() => {
-    return tasks.filter((t) => t.status === 'funded').length;
+    return tasks.filter((t) => (t.status === 'funded' || t.status === 'rejected') && new Date(t.expires_at) >= new Date()).length;
   }, [tasks]);
 
   return (
@@ -185,17 +185,19 @@ export default function Dashboard() {
                   description={task.description || 'No description provided.'}
                   bounty={Number(task.bounty_usdc)}
                   status={
-                    task.status === 'rejected' || task.status === 'refunded' || (task.status === 'archived' && task.refund_tx_hash) || (task.status === 'funded' && new Date(task.expires_at) < new Date())
-                      ? 'Refunded'
-                      : task.status === 'funded'
-                      ? 'Open'
+                    task.status === 'refunded' || (task.status === 'archived' && task.refund_tx_hash)
+                      ? 'refunded'
+                      : ((task.status === 'funded' || task.status === 'rejected') && new Date(task.expires_at) < new Date())
+                      ? 'expired'
+                      : (task.status === 'funded' || task.status === 'rejected')
+                      ? 'funded'
                       : task.status === 'posted'
-                      ? 'Pending Deposit'
+                      ? 'posted'
                       : task.status === 'submitted'
-                      ? 'In Review'
+                      ? 'submitted'
                       : task.status === 'approved' || task.status === 'paid' || (task.status === 'archived' && task.tx_hash)
-                      ? 'Approved'
-                      : 'Completed'
+                      ? 'approved'
+                      : 'archived'
                   }
                   poster_wallet_address={task.poster_wallet_address}
                 />
