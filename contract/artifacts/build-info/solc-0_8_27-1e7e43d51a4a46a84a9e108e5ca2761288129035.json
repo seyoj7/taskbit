@@ -1,11 +1,11 @@
 {
   "_format": "hh3-sol-build-info-1",
-  "id": "solc-0_8_34-844ee8c7357b0dc3376f5be99dcda5180f2da392",
-  "solcVersion": "0.8.34",
-  "solcLongVersion": "0.8.34+commit.80d5c536",
+  "id": "solc-0_8_27-1e7e43d51a4a46a84a9e108e5ca2761288129035",
+  "solcVersion": "0.8.27",
+  "solcLongVersion": "0.8.27+commit.40a35a09",
   "compilerType": "solc",
   "toolVersions": {
-    "hardhat": "3.17.0"
+    "hardhat": "3.18.1"
   },
   "userSourceNameMap": {
     "contracts/TaskEscrow.sol": "project/contracts/TaskEscrow.sol"
@@ -13,7 +13,7 @@
   "input": {
     "language": "Solidity",
     "settings": {
-      "evmVersion": "osaka",
+      "evmVersion": "cancun",
       "optimizer": {
         "enabled": true,
         "runs": 200

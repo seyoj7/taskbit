@@ -1,15 +1,13 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-const USDC_ADDRESS = process.env.USDC_ADDRESS;
+// The standard USDC token address on Arc testnet and mainnet
+const USDC_ADDRESS_ARC = "0x3600000000000000000000000000000000000000";
 
-const TaskEscrowModule = buildModule("TaskEscrowModule", (m) => {
-  // We define a parameter that defaults to the environment variable or the zero address
-  const usdc = m.getParameter("usdc", USDC_ADDRESS);
+export default buildModule("TaskEscrowModule", (m) => {
+  // Use the native USDC address on Arc network as the default for the _usdc parameter
+  const usdcAddress = m.getParameter("usdcAddress", USDC_ADDRESS_ARC);
 
-  // Deploy the TaskEscrow contract with the USDC address as the constructor argument
-  const taskEscrow = m.contract("TaskEscrow", [usdc]);
+  const taskEscrow = m.contract("TaskEscrow", [usdcAddress]);
 
   return { taskEscrow };
 });
-
-export default TaskEscrowModule;

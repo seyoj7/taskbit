@@ -1,19 +1,20 @@
-import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
-import hardhatEthersPlugin from "@nomicfoundation/hardhat-ethers";
-import * as dotenv from "dotenv";
+import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { configVariable, defineConfig } from "hardhat/config";
+import * as dotenv from "dotenv";
 
 dotenv.config({ path: "../.env" });
 
+const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
+
 export default defineConfig({
-  plugins: [hardhatToolboxMochaEthersPlugin, hardhatEthersPlugin],
+  plugins: [hardhatToolboxViemPlugin],
   solidity: {
     profiles: {
       default: {
-        version: "0.8.34",
+        version: "0.8.27",
       },
       production: {
-        version: "0.8.34",
+        version: "0.8.27",
         settings: {
           optimizer: {
             enabled: true,
@@ -24,17 +25,27 @@ export default defineConfig({
     },
   },
   networks: {
-    arc: {
-      type: "http",
-      chainId: 5042,
-      url: process.env.ARC_RPC_URL || "https://rpc.mainnet.arc.io",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    hardhatMainnet: {
+      type: "edr-simulated",
+      chainType: "l1",
+    },
+    hardhatOp: {
+      type: "edr-simulated",
+      chainType: "op",
     },
     arcTestnet: {
       type: "http",
+      chainType: "l1",
+      url: "https://rpc.testnet.arc.network",
       chainId: 5042002,
-      url: process.env.ARC_TESTNET_RPC_URL || "https://arc-testnet.drpc.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+    },
+    arcMainnet: {
+      type: "http",
+      chainType: "l1",
+      url: "https://rpc.mainnet.arc.io",
+      chainId: 5042,
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
     },
   },
 });
