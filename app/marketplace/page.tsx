@@ -21,7 +21,6 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -38,7 +37,7 @@ export default function Dashboard() {
       }
     };
     loadTasks();
-  }, [activeTab, refreshTrigger]);
+  }, [activeTab]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {

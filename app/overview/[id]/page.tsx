@@ -23,24 +23,8 @@ import {
   User,
 } from '../../components/api';
 import { useWallet, ARC_TESTNET_CHAIN_ID } from '../../components/WalletProvider';
-import { TASK_ESCROW_ADDRESS, USDC_ADDRESS } from '../../components/contracts';
+import { TASK_ESCROW_ABI, TASK_ESCROW_ADDRESS, USDC_ADDRESS, USDC_ABI } from '../../components/contracts';
 
-const USDC_ABI = [
-  "function approve(address spender, uint256 amount) external returns (bool)",
-  "function allowance(address owner, address spender) external view returns (uint256)",
-  "function balanceOf(address account) external view returns (uint256)"
-];
-
-const TASK_ESCROW_ABI = [
-  "function createTask(uint256 taskId, uint256 bounty, uint256 expiryTimestamp) external",
-  "function createTask(uint256 taskId, address worker, uint256 bounty, uint256 expiryTimestamp) external",
-  "function fundTask(uint256 taskId) external",
-  "function assignWorker(uint256 taskId, address worker) external",
-  "function submitWork(uint256 taskId) external",
-  "function releasePayment(uint256 taskId) external",
-  "function refundTask(uint256 taskId) external",
-  "function getTask(uint256 taskId) external view returns (tuple(address creator, address worker, uint256 bounty, uint256 expiryTimestamp, bool funded, bool completed, bool workSubmitted))"
-];
 
 // ── Status display helpers ──────────────────────────────────────
 

@@ -8,9 +8,9 @@ import styles from './page.module.css';
 
 export default function Home() {
   const [stats, setStats] = useState({
-    totalVolume: 1250,
-    activeCount: 8,
-    openCount: 5,
+    totalVolume: 0,
+    activeCount: 0,
+    openCount: 0,
     avgSettlement: '< 2 min',
   });
 
@@ -18,19 +18,19 @@ export default function Home() {
     let mounted = true;
     fetchTasks()
       .then((tasks: Task[]) => {
-        if (!mounted || !Array.isArray(tasks) || tasks.length === 0) return;
+        if (!mounted || !Array.isArray(tasks)) return;
         const total = tasks.reduce((sum, t) => sum + Number(t.bounty_usdc || 0), 0);
         const open = tasks.filter((t) => t.status === 'funded').length;
         const active = tasks.filter((t) => t.status !== 'rejected').length;
         setStats({
-          totalVolume: total > 0 ? total : 1250,
-          activeCount: active > 0 ? active : tasks.length,
-          openCount: open > 0 ? open : 5,
+          totalVolume: total,
+          activeCount: active,
+          openCount: open,
           avgSettlement: '< 2 min',
         });
       })
       .catch(() => {
-        // Fallback safely to realistic baseline network metrics
+        // Leave at 0 on failure
       });
 
     return () => {
@@ -156,9 +156,9 @@ export default function Home() {
             <div className={styles.lifecycleGrid}>
               {[
                 { step: '01', title: 'Post Task & Escrow', desc: 'Poster specifies bounty and locks USDC in the smart contract.' },
-                { step: '02', title: 'Submit PR / Proof', desc: 'Any worker submits a GitHub PR link as proof of work — first come, first served.' },
-                { step: '03', title: 'Review & Verify', desc: 'Poster reviews submitted proof and verifies deliverables match requirements.' },
-                { step: '04', title: 'Release USDC', desc: 'Poster approves and releases escrowed USDC directly to the worker.' },
+                { step: '02', title: 'Submit PR / Proof', desc: 'Multiple workers can submit a GitHub PR link as proof of work before the deadline.' },
+                { step: '03', title: 'Review & Select', desc: 'Poster reviews all submissions and selects the best contribution.' },
+                { step: '04', title: 'Release USDC', desc: 'Poster approves the selected submission and releases escrowed USDC to the worker.' },
               ].map((item, idx) => (
                 <div
                   key={idx}

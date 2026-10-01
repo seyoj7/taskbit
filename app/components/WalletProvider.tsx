@@ -26,11 +26,6 @@ export const ARC_TESTNET_PARAMS = {
   blockExplorerUrls: ['https://explorer.testnet.arc.io'],
 };
 
-export {
-  TASK_ESCROW_ADDRESS,
-  USDC_ADDRESS,
-  ARC_TESTNET_RPC_URL,
-} from './contracts/TaskEscrowArtifact';
 
 interface WalletContextType {
   account: string | null;

@@ -7,11 +7,15 @@ import Footer from '../components/Footer';
 import { useWallet, ARC_TESTNET_CHAIN_ID } from '../components/WalletProvider';
 import {
   TASK_ESCROW_ABI,
-  TASK_ESCROW_BYTECODE,
   TASK_ESCROW_ADDRESS,
   USDC_ADDRESS,
 } from '../components/contracts';
 import styles from './deploy.module.css';
+
+// NOTE: Bytecode must be copied from Hardhat's compiled artifact
+// (contract/artifacts/contracts/TaskEscrow.sol/TaskEscrow.json → "bytecode" field)
+// after running `npx hardhat compile` in the contract/ directory.
+const TASK_ESCROW_BYTECODE = '';
 
 export default function DeployEscrowPage() {
   const { account, connectWallet, switchToArcTestnet } = useWallet();

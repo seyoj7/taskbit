@@ -7,20 +7,9 @@ import { createTask, recordTaskFunding, getAuthToken } from '../components/api';
 import { useWallet, ARC_TESTNET_CHAIN_ID } from '../components/WalletProvider';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { TASK_ESCROW_ADDRESS, USDC_ADDRESS } from '../components/contracts';
+import { TASK_ESCROW_ABI, TASK_ESCROW_ADDRESS, USDC_ADDRESS, USDC_ABI } from '../components/contracts';
 import styles from './post-task.module.css';
 
-const USDC_ABI = [
-  "function approve(address spender, uint256 amount) external returns (bool)",
-  "function allowance(address owner, address spender) external view returns (uint256)",
-  "function balanceOf(address account) external view returns (uint256)"
-];
-
-const TASK_ESCROW_ABI = [
-  "function createTask(uint256 taskId, uint256 bounty, uint256 expiryTimestamp) external",
-  "function fundTask(uint256 taskId) external",
-  "function getTask(uint256 taskId) external view returns (tuple(address creator, address worker, uint256 bounty, bool funded, bool completed))"
-];
 
 export default function PostTask() {
   const router = useRouter();
