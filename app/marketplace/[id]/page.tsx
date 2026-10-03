@@ -396,6 +396,16 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   const handleRefundExpired = async () => {
     if (!account) return connectWallet();
 
+    // Block refund if there are pending submissions the poster hasn't reviewed
+    const currentPending = submissions.filter(s => s.status === 'pending');
+    if (currentPending.length > 0) {
+      return showAlert(
+        `You have ${currentPending.length} pending submission(s) that must be rejected before you can request a refund.`,
+        'Review Submissions First',
+        'warning'
+      );
+    }
+
     setIsSubmitting(true);
     setTxStatus("Processing refund on Arc Testnet...");
 
@@ -484,6 +494,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   ) : null;
 
   const pendingSubmissions = submissions.filter(s => s.status === 'pending');
+  const hasPendingSubmissions = pendingSubmissions.length > 0;
   const hasSubmissions = submissions.length > 0;
 
   const showRefund = Boolean(account && isPoster && ['funded', 'submitted', 'rejected'].includes(task.status));
@@ -810,15 +821,19 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
               {hasActions && (
                 <div className={styles.actionsDivider}>
 
-                  {/* Refund task (disabled until expired) */}
+                  {/* Refund task (disabled until expired + all submissions reviewed) */}
                 {account && isPoster && ['funded', 'submitted', 'rejected'].includes(task.status) && (
                   <div className={`animate-rise ${styles.actionWrapper}`}>
                     <button
-                      className={`antares-btn-surface ${styles.refundBtnStyled} ${!isExpired ? styles.refundBtnDisabled : ''}`}
+                      className={`antares-btn-surface ${styles.refundBtnStyled} ${(!isExpired || hasPendingSubmissions) ? styles.refundBtnDisabled : ''}`}
                       onClick={handleRefundExpired}
-                      disabled={isSubmitting || !isExpired}
+                      disabled={isSubmitting || !isExpired || hasPendingSubmissions}
                     >
-                      {isSubmitting ? 'Processing Refund…' : 'Refund Expired Task'}
+                      {isSubmitting
+                        ? 'Processing Refund…'
+                        : hasPendingSubmissions
+                          ? `Reject ${pendingSubmissions.length} Pending Submission${pendingSubmissions.length > 1 ? 's' : ''} First`
+                          : 'Refund Expired Task'}
                     </button>
                   </div>
                 )}

@@ -46,7 +46,7 @@ export default function Navbar() {
         <div className={`antares-nav-pill-container ${styles.navPills}`}>
           <Link
             href="/marketplace"
-            className={`antares-nav-pill ${pathname === '/marketplace' || pathname?.startsWith('/overview') ? 'active' : ''}`}
+            className={`antares-nav-pill ${pathname === '/marketplace' || pathname?.startsWith('/marketplace/') ? 'active' : ''}`}
           >
             <svg
               viewBox="0 0 24 24"

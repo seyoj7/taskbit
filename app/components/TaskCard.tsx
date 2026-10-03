@@ -88,7 +88,7 @@ export default function TaskCard({ id, title, description, bounty, status, poste
 
   return (
     <div
-      onClick={() => router.push(`/overview/${id}`)}
+      onClick={() => router.push(`/marketplace/${id}`)}
       className={styles.card}
     >
       <div className={styles.headerRow}>
