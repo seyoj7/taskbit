@@ -1170,3 +1170,189 @@
   border-color: rgba(239, 68, 68, 0.2);
 }
 
+/* ── Poster Score Badge ──────────────────────────────────────── */
+
+.posterScoreBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  margin-left: 6px;
+  font-family: var(--font-mono);
+}
+
+.posterScorePositive {
+  color: var(--up);
+  background-color: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.posterScoreNegative {
+  color: var(--down);
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.posterScoreNeutral {
+  color: var(--muted);
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+/* ── Review Form ─────────────────────────────────────────────── */
+
+.reviewForm {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background-color: rgba(59, 130, 246, 0.04);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.reviewFormHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.reviewFormLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+
+.reviewVoteButtons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.reviewVoteBtn {
+  width: 44px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background-color: var(--surface-2);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.reviewVoteBtn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.reviewVoteBtnUp.reviewVoteBtnActive {
+  border-color: rgba(16, 185, 129, 0.5);
+  background-color: rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.15);
+}
+
+.reviewVoteBtnDown.reviewVoteBtnActive {
+  border-color: rgba(239, 68, 68, 0.5);
+  background-color: rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.12);
+}
+
+.reviewTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background-color: var(--surface-2);
+  color: var(--fg);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 48px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.reviewTextarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.reviewTextarea::placeholder {
+  color: var(--muted);
+}
+
+.reviewFormFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.reviewCharCount {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.reviewSubmitBtn {
+  height: 32px;
+  font-size: 12px;
+  padding: 0 16px;
+}
+
+/* ── Submitted Review Display ────────────────────────────────── */
+
+.reviewSubmitted {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.reviewSubmittedHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.reviewSubmittedLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.reviewVoteBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.reviewVoteUp {
+  color: var(--up);
+  background-color: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.reviewVoteDown {
+  color: var(--down);
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.reviewSubmittedComment {
+  font-size: 13px;
+  color: var(--fg);
+  margin: 0;
+  line-height: 1.5;
+  font-style: italic;
+  opacity: 0.9;
+}

@@ -21,7 +21,7 @@ from eth_account.messages import encode_defunct
 from web3 import Web3
 import uvicorn
 
-from database import engine, get_db, init_db, Base, User, Task, Submission, TASK_STATUSES, SUBMISSION_STATUSES
+from database import engine, get_db, init_db, Base, User, Task, Submission, PosterReview, TASK_STATUSES, SUBMISSION_STATUSES
 from escrow import (
     check_escrow_contract_health,
     get_onchain_escrow_task,
@@ -230,6 +230,49 @@ class TaskReject(_WalletActionBase):
 class TaskRefund(_WalletActionBase):
     refund_tx_hash: str = Field(..., min_length=66, max_length=66,
                                 description="On-chain refundTask tx hash (required)")
+
+
+# ── Poster Review Schemas ─────────────────────────────────────
+
+class PosterReviewCreate(BaseModel):
+    vote: int = Field(..., description="+1 for upvote, -1 for downvote")
+    comment: str = Field(..., min_length=5, max_length=500, description="Required review comment")
+
+    @field_validator("vote")
+    @classmethod
+    def vote_must_be_valid(cls, v: int) -> int:
+        if v not in (1, -1):
+            raise ValueError("Vote must be +1 (upvote) or -1 (downvote)")
+        return v
+
+    @field_validator("comment")
+    @classmethod
+    def comment_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Comment must not be blank")
+        return v.strip()
+
+
+class PosterReviewResponse(BaseModel):
+    id: int
+    submission_id: int
+    reviewer_id: int
+    reviewer_wallet_address: str = ""
+    poster_id: int
+    vote: int
+    comment: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PosterScoreResponse(BaseModel):
+    poster_wallet_address: str
+    poster_id: int
+    upvotes: int
+    downvotes: int
+    score: int
+    reviews: List[PosterReviewResponse]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1128,6 +1171,137 @@ def refund_expired_task(
     db.commit()
     db.refresh(task)
     return _task_to_response(task, db)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Poster Reviews
+# ═══════════════════════════════════════════════════════════════
+
+def _review_to_response(review: PosterReview) -> dict:
+    """Build a PosterReviewResponse-compatible dict with reviewer wallet."""
+    resp = PosterReviewResponse.model_validate(review).model_dump()
+    if review.reviewer:
+        resp["reviewer_wallet_address"] = review.reviewer.wallet_address
+    return resp
+
+
+@app.post("/submissions/{submission_id}/review", response_model=PosterReviewResponse, status_code=201)
+def create_poster_review(
+    submission_id: int,
+    payload: PosterReviewCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Worker reviews a poster after their submission was rejected or selected.
+    Rules:
+      - Only the worker who owns the submission can review.
+      - Submission must have status 'rejected' or 'selected'.
+      - Auto-rejections ("Another submission was selected") are NOT reviewable.
+      - One review per submission (unique constraint, 409 on duplicate).
+    """
+    submission = _get_submission_or_404(submission_id, db)
+
+    # Only the submission owner can leave a review
+    if submission.worker_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the worker who owns this submission can review the poster.",
+        )
+
+    # Must be explicitly rejected or selected (not just auto-rejected)
+    if submission.status not in ("rejected", "selected"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot review: submission status is '{submission.status}', must be 'rejected' or 'selected'.",
+        )
+
+
+    # Block reviews on auto-rejections ("Another submission was selected")
+    if submission.rejection_reason == "Another submission was selected":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot review: this submission was auto-rejected because another submission was selected.",
+        )
+
+    # Get the task to find the poster
+    task = _get_task_or_404(submission.task_id, db)
+
+    # Check for existing review (unique constraint will also catch this)
+    existing = db.query(PosterReview).filter(PosterReview.submission_id == submission_id).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You have already reviewed the poster for this submission.",
+        )
+
+    review = PosterReview(
+        submission_id=submission_id,
+        reviewer_id=current_user.id,
+        poster_id=task.poster_id,
+        vote=payload.vote,
+        comment=payload.comment,
+    )
+
+    try:
+        db.add(review)
+        db.commit()
+        db.refresh(review)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You have already reviewed the poster for this submission.",
+        )
+
+    return _review_to_response(review)
+
+
+@app.get("/users/wallet/{wallet_address}/reviews", response_model=PosterScoreResponse)
+def get_poster_reviews(
+    wallet_address: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get all reviews for a poster plus their computed score.
+    Score = upvotes − downvotes, computed at read time.
+    """
+    poster = _get_user_by_wallet_or_404(wallet_address, db)
+
+    reviews = (
+        db.query(PosterReview)
+        .filter(PosterReview.poster_id == poster.id)
+        .order_by(PosterReview.created_at.desc())
+        .all()
+    )
+
+    upvotes = sum(1 for r in reviews if r.vote == 1)
+    downvotes = sum(1 for r in reviews if r.vote == -1)
+
+    return {
+        "poster_wallet_address": poster.wallet_address,
+        "poster_id": poster.id,
+        "upvotes": upvotes,
+        "downvotes": downvotes,
+        "score": upvotes - downvotes,
+        "reviews": [_review_to_response(r) for r in reviews],
+    }
+
+
+@app.get("/submissions/{submission_id}/review", response_model=PosterReviewResponse)
+def get_submission_review(
+    submission_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get the review for a specific submission, if one exists."""
+    _get_submission_or_404(submission_id, db)
+    review = db.query(PosterReview).filter(PosterReview.submission_id == submission_id).first()
+    if not review:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No review found for this submission.",
+        )
+    return _review_to_response(review)
 
 
 if __name__ == "__main__":

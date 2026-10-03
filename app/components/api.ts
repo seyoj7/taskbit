@@ -345,3 +345,59 @@ export async function refundExpiredTask(
   }
   return res.json().then(normalizeTaskDates);
 }
+
+// ── Poster Reviews ──────────────────────────────────────────
+
+export interface PosterReview {
+  id: number;
+  submission_id: number;
+  reviewer_id: number;
+  reviewer_wallet_address: string;
+  poster_id: number;
+  vote: number;
+  comment: string;
+  created_at: string;
+}
+
+export interface PosterScore {
+  poster_wallet_address: string;
+  poster_id: number;
+  upvotes: number;
+  downvotes: number;
+  score: number;
+  reviews: PosterReview[];
+}
+
+export async function submitPosterReview(
+  submissionId: number,
+  vote: number,
+  comment: string
+): Promise<PosterReview> {
+  const res = await fetch(`${API_URL}/submissions/${submissionId}/review`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ vote, comment }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to submit review');
+  }
+  return res.json();
+}
+
+export async function fetchPosterReviews(walletAddress: string): Promise<PosterScore> {
+  const res = await fetch(`${API_URL}/users/wallet/${walletAddress}/reviews`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch poster reviews');
+  }
+  return res.json();
+}
+
+export async function fetchSubmissionReview(submissionId: number): Promise<PosterReview | null> {
+  const res = await fetch(`${API_URL}/submissions/${submissionId}/review`);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error('Failed to fetch submission review');
+  }
+  return res.json();
+}

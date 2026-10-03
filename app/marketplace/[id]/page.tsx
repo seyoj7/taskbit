@@ -18,9 +18,14 @@ import {
   approveTask,
   rejectSubmission,
   refundExpiredTask,
+  submitPosterReview,
+  fetchPosterReviews,
+  fetchSubmissionReview,
   Task,
   Submission,
   User,
+  PosterReview,
+  PosterScore,
 } from '../../components/api';
 import { useWallet, ARC_TESTNET_CHAIN_ID } from '../../components/WalletProvider';
 import { TASK_ESCROW_ABI, TASK_ESCROW_ADDRESS, USDC_ADDRESS, USDC_ABI } from '../../components/contracts';
@@ -101,6 +106,12 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingSubmissionId, setRejectingSubmissionId] = useState<number | null>(null);
   const [approvingSubmissionId, setApprovingSubmissionId] = useState<number | null>(null);
+
+  // ── Poster review state ────────────────────────────────────
+  const [posterScore, setPosterScore] = useState<PosterScore | null>(null);
+  const [reviewForms, setReviewForms] = useState<Record<number, { vote: number | null; comment: string }>>({});
+  const [submittedReviews, setSubmittedReviews] = useState<Record<number, PosterReview>>({});
+  const [reviewSubmitting, setReviewSubmitting] = useState<number | null>(null);
   const [alertModal, setAlertModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -153,8 +164,33 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       try {
         const subs = await fetchTaskSubmissions(taskId);
         setSubmissions(subs);
+
+        // Fetch existing reviews for rejected or selected submissions
+        const reviewMap: Record<number, PosterReview> = {};
+        await Promise.all(
+          subs
+            .filter(s => s.status === 'rejected' || s.status === 'selected')
+            .map(async (s) => {
+              try {
+                const review = await fetchSubmissionReview(s.id);
+                if (review) reviewMap[s.id] = review;
+              } catch { /* no review yet */ }
+            })
+        );
+        setSubmittedReviews(reviewMap);
       } catch (e) {
         console.warn('Could not fetch submissions:', e);
+      }
+
+      // Fetch poster reviews / score
+      try {
+        const posterWallet = fetchedTask.poster_wallet_address;
+        if (posterWallet) {
+          const score = await fetchPosterReviews(posterWallet);
+          setPosterScore(score);
+        }
+      } catch (e) {
+        console.warn('Could not fetch poster reviews:', e);
       }
 
       try {
@@ -174,6 +210,36 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     loadTask();
   }, [unwrappedParams.id]);
+
+  // ── Poster review handler ──────────────────────────────────
+
+  const handleSubmitReview = async (submissionId: number) => {
+    const form = reviewForms[submissionId];
+    if (!form || form.vote === null || !form.comment.trim()) return;
+    if (form.comment.trim().length < 5) {
+      return showAlert('Review comment must be at least 5 characters.', 'Review Error', 'warning');
+    }
+
+    setReviewSubmitting(submissionId);
+    try {
+      const review = await submitPosterReview(submissionId, form.vote, form.comment.trim());
+      setSubmittedReviews(prev => ({ ...prev, [submissionId]: review }));
+      setReviewForms(prev => {
+        const next = { ...prev };
+        delete next[submissionId];
+        return next;
+      });
+      // Refresh poster score
+      if (task?.poster_wallet_address) {
+        const score = await fetchPosterReviews(task.poster_wallet_address);
+        setPosterScore(score);
+      }
+    } catch (e: any) {
+      showAlert(e.message || 'Failed to submit review.', 'Review Error', 'danger');
+    } finally {
+      setReviewSubmitting(null);
+    }
+  };
 
   // ── Lifecycle handlers ──────────────────────────────────────
 
@@ -575,6 +641,18 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                         )}
                       </button>
                     )}
+                    {posterScore && (
+                      <span
+                        className={`${styles.posterScoreBadge} ${
+                          posterScore.score > 0 ? styles.posterScorePositive :
+                          posterScore.score < 0 ? styles.posterScoreNegative :
+                          styles.posterScoreNeutral
+                        }`}
+                        title={`Poster reputation: ${posterScore.upvotes} upvote${posterScore.upvotes !== 1 ? 's' : ''}, ${posterScore.downvotes} downvote${posterScore.downvotes !== 1 ? 's' : ''}`}
+                      >
+                        {posterScore.score > 0 ? '+' : ''}{posterScore.score}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -702,6 +780,110 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                             Submitted {new Date(sub.created_at).toLocaleString(undefined, { hour12: true })}
                           </span>
                         </div>
+
+                        {/* Worker review form for rejected/selected submissions */}
+                        {(sub.status === 'rejected' || sub.status === 'selected')
+                          && sub.rejection_reason !== 'Another submission was selected'
+                          && account
+                          && sub.worker_wallet_address.toLowerCase() === account.toLowerCase()
+                          && (
+                          submittedReviews[sub.id] ? (
+                            <div className={styles.reviewSubmitted}>
+                              <div className={styles.reviewSubmittedHeader}>
+                                <span className={styles.reviewSubmittedLabel}>Your Review</span>
+                                <span className={`${styles.reviewVoteBadge} ${
+                                  submittedReviews[sub.id].vote === 1 ? styles.reviewVoteUp : styles.reviewVoteDown
+                                }`}>
+                                  {submittedReviews[sub.id].vote === 1 ? '👍 Upvoted' : '👎 Downvoted'}
+                                </span>
+                              </div>
+                              <p className={styles.reviewSubmittedComment}>
+                                &ldquo;{submittedReviews[sub.id].comment}&rdquo;
+                              </p>
+                            </div>
+                          ) : (
+                            <div className={styles.reviewForm}>
+                              <div className={styles.reviewFormHeader}>
+                                <span className={styles.reviewFormLabel}>Rate this poster</span>
+                              </div>
+                              <div className={styles.reviewVoteButtons}>
+                                <button
+                                  type="button"
+                                  className={`${styles.reviewVoteBtn} ${styles.reviewVoteBtnUp} ${
+                                    reviewForms[sub.id]?.vote === 1 ? styles.reviewVoteBtnActive : ''
+                                  }`}
+                                  onClick={() => setReviewForms(prev => ({
+                                    ...prev,
+                                    [sub.id]: { ...prev[sub.id], vote: 1, comment: prev[sub.id]?.comment || '' }
+                                  }))}
+                                >
+                                  👍
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`${styles.reviewVoteBtn} ${styles.reviewVoteBtnDown} ${
+                                    reviewForms[sub.id]?.vote === -1 ? styles.reviewVoteBtnActive : ''
+                                  }`}
+                                  onClick={() => setReviewForms(prev => ({
+                                    ...prev,
+                                    [sub.id]: { ...prev[sub.id], vote: -1, comment: prev[sub.id]?.comment || '' }
+                                  }))}
+                                >
+                                  👎
+                                </button>
+                              </div>
+                              <textarea
+                                className={styles.reviewTextarea}
+                                placeholder="Leave a comment about this poster (5–500 chars)…"
+                                value={reviewForms[sub.id]?.comment || ''}
+                                onChange={(e) => setReviewForms(prev => ({
+                                  ...prev,
+                                  [sub.id]: { ...prev[sub.id], vote: prev[sub.id]?.vote ?? null, comment: e.target.value }
+                                }))}
+                                maxLength={500}
+                                rows={2}
+                              />
+                              <div className={styles.reviewFormFooter}>
+                                <span className={styles.reviewCharCount}>
+                                  {(reviewForms[sub.id]?.comment || '').length}/500
+                                </span>
+                                <button
+                                  className={`antares-btn-accent ${styles.reviewSubmitBtn}`}
+                                  onClick={() => handleSubmitReview(sub.id)}
+                                  disabled={
+                                    reviewSubmitting === sub.id
+                                    || reviewForms[sub.id]?.vote === null
+                                    || reviewForms[sub.id]?.vote === undefined
+                                    || !reviewForms[sub.id]?.comment?.trim()
+                                    || (reviewForms[sub.id]?.comment?.trim().length || 0) < 5
+                                  }
+                                >
+                                  {reviewSubmitting === sub.id ? 'Submitting…' : 'Submit Review'}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        )}
+
+                        {/* Show existing review for other viewers (not the worker) */}
+                        {(sub.status === 'rejected' || sub.status === 'selected')
+                          && submittedReviews[sub.id]
+                          && (!account || sub.worker_wallet_address.toLowerCase() !== account.toLowerCase())
+                          && (
+                          <div className={styles.reviewSubmitted}>
+                            <div className={styles.reviewSubmittedHeader}>
+                              <span className={styles.reviewSubmittedLabel}>Worker Review</span>
+                              <span className={`${styles.reviewVoteBadge} ${
+                                submittedReviews[sub.id].vote === 1 ? styles.reviewVoteUp : styles.reviewVoteDown
+                              }`}>
+                                {submittedReviews[sub.id].vote === 1 ? '👍 Upvoted' : '👎 Downvoted'}
+                              </span>
+                            </div>
+                            <p className={styles.reviewSubmittedComment}>
+                              &ldquo;{submittedReviews[sub.id].comment}&rdquo;
+                            </p>
+                          </div>
+                        )}
 
                         {/* Poster actions per submission */}
                         {isPoster && sub.status === 'pending' && !isTerminal && (

@@ -133,6 +133,28 @@ class Submission(Base):
     # Relationships
     task = relationship("Task", back_populates="submissions", foreign_keys=[task_id])
     worker = relationship("User", back_populates="submissions", foreign_keys=[worker_id])
+    review = relationship("PosterReview", back_populates="submission", uselist=False)
+
+
+class PosterReview(Base):
+    """Worker's review of a poster after their submission was rejected."""
+    __tablename__ = "poster_reviews"
+    __table_args__ = (
+        UniqueConstraint("submission_id", name="uq_one_review_per_submission"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False, index=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="Worker who left the review")
+    poster_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="Poster being reviewed")
+    vote = Column(Integer, nullable=False, comment="+1 upvote or -1 downvote")
+    comment = Column(Text, nullable=False, comment="Required review comment (5-500 chars)")
+    created_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    submission = relationship("Submission", back_populates="review", foreign_keys=[submission_id])
+    reviewer = relationship("User", foreign_keys=[reviewer_id])
+    poster = relationship("User", foreign_keys=[poster_id])
 
 
 def init_db():  # noqa: C901
