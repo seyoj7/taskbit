@@ -244,3 +244,20 @@
   transform: scale(1.08);
 }
 
+@media (max-width: 600px) {
+  .deadlineGrid, .deadlineGridSpaced {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .modal {
+    padding: 24px 16px;
+  }
+  .title {
+    font-size: 20px;
+  }
+  .ruleBox {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+

@@ -267,3 +267,24 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+@media (max-width: 600px) {
+  .brandName {
+    display: none;
+  }
+  .pillText {
+    display: none;
+  }
+  .postTaskBtn {
+    padding: 0 8px;
+  }
+  .walletBtn {
+    padding: 0 8px;
+  }
+  .accountAddress {
+    font-size: 11px;
+  }
+  .networkSummary {
+    display: none;
+  }
+}

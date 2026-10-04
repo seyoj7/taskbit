@@ -269,3 +269,25 @@
   color: var(--muted);
   line-height: 1.5;
 }
+
+@media (max-width: 600px) {
+  .main {
+    padding: 40px 16px 64px 16px;
+  }
+  .heroSection {
+    gap: 32px;
+  }
+  .heroTitle {
+    font-size: 32px;
+  }
+  .heroSubtitle {
+    font-size: 16px;
+  }
+  .actionPanel {
+    padding: 16px;
+  }
+  .statBox {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}

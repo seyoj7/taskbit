@@ -61,7 +61,7 @@ export default function Navbar() {
               <path d="M4 9 6 4h12l2 5" />
               <path d="M9.5 13a2.5 2.5 0 0 0 5 0" />
             </svg>
-            <span>Marketplace</span>
+            <span className={styles.pillText}>Marketplace</span>
           </Link>
 
           <Link
@@ -79,15 +79,26 @@ export default function Navbar() {
             >
               <path d="M12 3.5 13.7 9l5.5 1.7-5.5 1.7L12 18l-1.7-5.6L4.8 10.7 10.3 9 12 3.5Z" />
             </svg>
-            <span>Overview</span>
+            <span className={styles.pillText}>Overview</span>
           </Link>
 
           <Link
             href="/post-task"
             className={`antares-nav-pill ${pathname === '/post-task' ? 'active' : ''} ${styles.postTaskBtn}`}
           >
-            <span className={styles.postTaskPlus}>+</span>
-            <span>Post Task</span>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={styles.navIcon}
+            >
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            <span className={styles.pillText}>Post Task</span>
           </Link>
         </div>
 
