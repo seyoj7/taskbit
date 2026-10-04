@@ -2,7 +2,7 @@
 
 **Arc-Native Proof-of-Work Marketplace with USDC Smart Contract Escrow**
 
-Taskbit is a decentralized micro-bounty marketplace built for the Arc network. Project creators post small, verifiable tasks with USDC bounties held in a trustless smart contract escrow. Multiple builders can submit verifiable GitHub proofs (Pull Requests or Commits) for each task. The poster reviews all submissions, selects the best one, and approves it — releasing the escrowed USDC directly to the chosen worker on-chain. If no workers submit by the deadline, the poster can reclaim their funds.
+Taskbit is a decentralized micro-bounty marketplace built for the Arc network. Project creators post small, verifiable tasks with USDC bounties held in a trustless smart contract escrow. Multiple builders can submit verifiable GitHub proofs (Pull Requests or Commits) for each task. The poster reviews all submissions, selects the best one, and approves it — releasing the escrowed USDC directly to the chosen worker on-chain. If no workers submit by the deadline, the poster can reclaim their funds. Workers can leave reputation reviews on posters, building an on-chain trust layer for the marketplace.
 
 ---
 
@@ -22,8 +22,8 @@ Taskbit is a decentralized micro-bounty marketplace built for the Arc network. P
                └─────────┬───────────────────┬────────┘
                          │                   │
                ┌─────────▼─────────┐   ┌─────▼──────────────┐
-               │  SQLite / MySQL   │   │  GitHub REST API   │
-               │     Database      │   │  Proof Verification│
+               │    PostgreSQL /   │   │  GitHub REST API   │
+               │   MySQL / SQLite  │   │  Proof Verification│
                └───────────────────┘   └─────────────┬──────┘
                                                      │
                                             Verified Proof
@@ -37,6 +37,52 @@ Taskbit is a decentralized micro-bounty marketplace built for the Arc network. P
 
 ---
 
+## 📁 Project Structure
+
+```text
+taskbit/
+├── app/                          # Next.js frontend
+│   ├── components/               # Reusable UI components
+│   │   ├── Navbar.tsx            # Wallet-connected navigation bar
+│   │   ├── Footer.tsx            # Site footer
+│   │   ├── TaskCard.tsx          # Task card component
+│   │   ├── WalletProvider.tsx    # Ethers.js wallet context provider
+│   │   ├── api.ts                # Backend API client (all REST calls)
+│   │   ├── contracts/            # Contract ABIs & helpers
+│   │   └── ConfirmModal/         # Reusable confirmation dialog
+│   ├── marketplace/              # Marketplace dashboard page
+│   │   └── [id]/                 # Individual task detail page
+│   ├── post-task/                # Create & fund a new task
+│   ├── deploy-escrow/            # Browser-based contract deployment
+│   ├── page.tsx                  # Landing page
+│   ├── layout.tsx                # Root layout with global providers
+│   └── globals.css               # Global design tokens & styles
+│
+├── backend/                      # FastAPI backend
+│   ├── main.py                   # All API routes & business logic
+│   ├── database.py               # SQLAlchemy models & migrations
+│   ├── escrow.py                 # On-chain escrow verification (Web3.py)
+│   ├── requirements.txt          # Python dependencies
+│   └── tests/                    # Pytest test suite
+│       ├── test_api.py           # API integration tests
+│       └── seed.py               # Database seeding script
+│
+├── contract/                     # Smart contract (Hardhat)
+│   ├── contracts/
+│   │   └── TaskEscrow.sol        # Solidity escrow contract
+│   ├── ignition/                 # Hardhat Ignition deployment modules
+│   ├── hardhat.config.ts         # Hardhat configuration (Arc Testnet)
+│   └── package.json              # Contract dependencies
+│
+├── database/                     # Database files (SQLite dev DB)
+├── package.json                  # Root package.json (concurrently runs frontend + backend)
+├── next.config.ts                # Next.js configuration
+├── tsconfig.json                 # TypeScript configuration
+└── .env.example                  # Environment variable template
+```
+
+---
+
 ## ⚡ Tech Stack
 
 | Layer | Technologies |
@@ -44,8 +90,8 @@ Taskbit is a decentralized micro-bounty marketplace built for the Arc network. P
 | **Frontend** | Next.js 16, React 19, TypeScript, Vanilla CSS, Ethers.js v6 |
 | **Backend** | Python, FastAPI, SQLAlchemy, Pydantic v2, Web3.py, PyJWT |
 | **Blockchain** | Solidity 0.8.27, Hardhat, Arc Testnet (EVM, Chain ID 5042002) |
-| **Database** | SQLite (development) / MySQL (production) |
-| **Authentication** | EIP-191 wallet signatures + JWT bearer tokens |
+| **Database** | PostgreSQL (production) / MySQL / SQLite (development) |
+| **Authentication** | EIP-191 wallet signatures + JWT bearer tokens (7-day expiry) |
 | **Verification** | GitHub REST API (PR & commit validation) |
 
 ---
@@ -113,6 +159,146 @@ When builders submit proof for a completed task:
 
 ---
 
+## ⭐ Poster Reputation System
+
+Taskbit includes a **poster reputation system** that lets workers rate task posters after a submission outcome, building a transparent trust layer for the marketplace.
+
+### How It Works
+
+After a worker's submission is **rejected** or **selected** (approved), they can leave a one-time review on the poster consisting of:
+- **Vote**: `+1` (upvote) or `-1` (downvote)
+- **Comment**: A required text review (5–500 characters)
+
+Each poster's **reputation score** is computed in real time as:
+
+```
+Score = Total Upvotes − Total Downvotes
+```
+
+### Rules & Constraints
+
+| Rule | Detail |
+|---|---|
+| **Who can review** | Only the worker who owns the submission |
+| **When** | After the submission status is `rejected` or `selected` |
+| **One review per submission** | Enforced by a unique constraint — duplicate attempts return `409` |
+| **Auto-rejections excluded** | Submissions auto-rejected with "Another submission was selected" cannot be reviewed |
+| **Score calculation** | Computed at read time (not stored), always up-to-date |
+
+### Data Model
+
+```text
+┌──────────────┐       ┌──────────────┐       ┌──────────────┐
+│     User     │       │  Submission  │       │ PosterReview │
+│  (Worker)    │──────▶│              │──────▶│              │
+│              │       │  task_id     │       │  vote (+1/-1)│
+│              │       │  worker_id   │       │  comment     │
+│              │       │  status      │       │  reviewer_id │
+└──────────────┘       └──────────────┘       │  poster_id   │
+                                              └──────────────┘
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/submissions/{id}/review` | Submit a review for a poster (auth required) |
+| `GET` | `/submissions/{id}/review` | Get the review for a specific submission |
+| `GET` | `/users/wallet/{address}/reviews` | Get a poster's reputation score + all reviews |
+
+### Example: Fetch a Poster's Reputation
+
+```bash
+curl http://127.0.0.1:8000/users/wallet/0x1234.../reviews
+```
+
+Response:
+```json
+{
+  "poster_wallet_address": "0x1234...",
+  "poster_id": 1,
+  "upvotes": 12,
+  "downvotes": 2,
+  "score": 10,
+  "reviews": [
+    {
+      "id": 1,
+      "submission_id": 5,
+      "reviewer_id": 3,
+      "reviewer_wallet_address": "0xabcd...",
+      "poster_id": 1,
+      "vote": 1,
+      "comment": "Great poster, clear requirements and fast approval!",
+      "created_at": "2026-10-01T12:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## 📡 API Reference
+
+All protected endpoints require a `Bearer <JWT>` token obtained via wallet signature authentication.
+
+### Health & Status
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/` | No | API health check |
+| `GET` | `/escrow/health` | No | Arc Testnet RPC + contract deployment status |
+
+### Authentication
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/users/auth/challenge` | No | Request a cryptographic sign-in challenge |
+| `POST` | `/users/auth/verify` | No | Verify wallet signature and receive JWT |
+| `POST` | `/users/auth/wallet` | No | Direct wallet connect (dev/lookup) |
+
+### Users
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/users/` | No | List all registered users |
+| `GET` | `/users/{id}` | No | Get user by ID |
+| `GET` | `/users/wallet/{address}` | No | Get user by wallet address |
+
+### Tasks
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/tasks/` | ✅ | Create a new task |
+| `GET` | `/tasks/` | No | List tasks (filter by `?task_status=`) |
+| `GET` | `/tasks/{id}` | No | Get task details |
+| `GET` | `/tasks/{id}/escrow` | No | Fetch real-time on-chain escrow status |
+
+### Task Lifecycle
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `PATCH` | `/tasks/{id}/fund` | ✅ | Record on-chain funding (`posted → funded`) |
+| `PATCH` | `/tasks/{id}/submit` | ✅ | Submit proof of work (GitHub PR/commit) |
+| `PATCH` | `/tasks/{id}/approve` | ✅ | Approve a submission + release payment on-chain |
+| `PATCH` | `/tasks/{id}/reject` | ✅ | Reject a specific submission |
+| `PATCH` | `/tasks/{id}/refund` | ✅ | Refund expired task on-chain |
+
+### Submissions
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/tasks/{id}/submissions` | No | List all submissions for a task |
+
+### Poster Reputation
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/submissions/{id}/review` | ✅ | Submit a poster review (vote + comment) |
+| `GET` | `/submissions/{id}/review` | No | Get review for a specific submission |
+| `GET` | `/users/wallet/{address}/reviews` | No | Get poster's reputation score + all reviews |
+
+---
+
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
@@ -134,15 +320,18 @@ Configure your variables:
 # Arc Blockchain
 ARC_TESTNET_RPC_URL=https://arc-testnet.drpc.org
 USDC_ADDRESS=0x3600000000000000000000000000000000000000
-CONTRACT_ADDRESS=0x9dC7c747B74dB5885AFC1798CAA1675F1510c4Df
+CONTRACT_ADDRESS=<deployed-contract-address>
+
+# Deployer Private Key (for Hardhat CLI deployment only — never commit!)
+PRIVATE_KEY=
+
+# Authentication
+JWT_SECRET=<generate-with: python -c "import secrets; print(secrets.token_hex(32))">
 
 # Optional GitHub API Token (prevents rate limits)
 GITHUB_TOKEN=
 
-# Auth Secret
-JWT_SECRET=your-random-jwt-secret-key
-
-# Database
+# Database (PostgreSQL, MySQL, or SQLite)
 DATABASE_URL=postgresql://user:password@host:5432/dbname
 ```
 
@@ -184,33 +373,6 @@ npx hardhat ignition deploy ignition/modules/TaskEscrow.ts --network arcTestnet
 ```
 
 After deployment, update `CONTRACT_ADDRESS` in your `.env` file with the new address.
-
----
-
-## 🧪 Testing
-
-### Smart Contract Tests
-Run the Hardhat test suite:
-
-```bash
-cd contract
-npx hardhat test
-```
-
-### Backend API Tests
-Run the pytest test suite covering cryptographic auth, task lifecycles, and proof validation:
-
-```bash
-cd backend
-python -m pytest tests/
-```
-
-### Frontend Typecheck
-Verify TypeScript types and component interfaces:
-
-```bash
-npx tsc --noEmit
-```
 
 ---
 
