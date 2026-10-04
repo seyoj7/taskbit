@@ -102,7 +102,7 @@ def test_root_and_escrow_health(client: TestClient):
 
     health_res = client.get("/escrow/health")
     assert health_res.status_code == 200
-    assert health_res.json()["network"] == "Arc Testnet"
+    assert health_res.json()["network"] == "Arc Mainnet"
 
 
 def test_wallet_challenge_and_verification(client: TestClient, creator_account):

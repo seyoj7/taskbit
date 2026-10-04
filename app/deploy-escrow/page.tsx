@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { useWallet, ARC_TESTNET_CHAIN_ID } from '../components/WalletProvider';
+import { useWallet, ARC_CHAIN_ID } from '../components/WalletProvider';
 import {
   TASK_ESCROW_ABI,
   TASK_ESCROW_ADDRESS,
@@ -18,7 +18,7 @@ import styles from './deploy.module.css';
 const TASK_ESCROW_BYTECODE = '';
 
 export default function DeployEscrowPage() {
-  const { account, connectWallet, switchToArcTestnet } = useWallet();
+  const { account, connectWallet, switchToArcNetwork } = useWallet();
   const [usdcAddress, setUsdcAddress] = useState(USDC_ADDRESS);
   const [isDeploying, setIsDeploying] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -48,11 +48,11 @@ export default function DeployEscrowPage() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const network = await provider.getNetwork();
 
-      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
-        setStatusMsg("Switching to Arc Testnet...");
-        const switched = await switchToArcTestnet();
+      if (Number(network.chainId) !== ARC_CHAIN_ID) {
+        setStatusMsg("Switching to Arc Mainnet...");
+        const switched = await switchToArcNetwork();
         if (!switched) {
-          throw new Error("You must be on Arc Testnet (Chain ID 5042002) to deploy.");
+          throw new Error("You must be on Arc Mainnet (Chain ID 5042) to deploy.");
         }
       }
 
@@ -66,14 +66,14 @@ export default function DeployEscrowPage() {
 
       if (tx) {
         setDeployTxHash(tx.hash);
-        setStatusMsg(`Deploy transaction submitted (${tx.hash.slice(0, 10)}...). Waiting for Arc Testnet confirmation...`);
+        setStatusMsg(`Deploy transaction submitted (${tx.hash.slice(0, 10)}...). Waiting for Arc Mainnet confirmation...`);
       }
 
       await contract.waitForDeployment();
       const targetAddress = await contract.getAddress();
 
       setDeployedAddress(targetAddress);
-      setStatusMsg("Contract successfully deployed to Arc Testnet!");
+      setStatusMsg("Contract successfully deployed to Arc Mainnet!");
     } catch (err: any) {
       console.error(err);
       setError(
@@ -99,7 +99,7 @@ export default function DeployEscrowPage() {
       <main className={styles.main}>
         <div className={styles.container}>
           <div className={styles.header}>
-            <div className={styles.badge}>Arc Testnet Escrow</div>
+            <div className={styles.badge}>Arc Mainnet Escrow</div>
             <h1 className={styles.title}>Deploy Updated TaskEscrow</h1>
             <p className={styles.subtitle}>
               Deploy the enhanced <code>TaskEscrow</code> contract with support for open task creation
@@ -115,7 +115,7 @@ export default function DeployEscrowPage() {
               </div>
               <div className={styles.infoRow}>
                 <span className={styles.infoLabel}>Target Network:</span>
-                <span className={styles.networkBadge}>Arc Testnet (5042002)</span>
+                <span className={styles.networkBadge}>Arc Mainnet (5042002)</span>
               </div>
               <div className={styles.infoRow}>
                 <span className={styles.infoLabel}>USDC Token Address:</span>
@@ -146,7 +146,7 @@ export default function DeployEscrowPage() {
               <div className={styles.successBox}>
                 <div className={styles.successTitle}>Deployment Successful!</div>
                 <p className={styles.successDesc}>
-                  Your new TaskEscrow contract is active on Arc Testnet.
+                  Your new TaskEscrow contract is active on Arc Mainnet.
                 </p>
                 <div className={styles.addressBox}>
                   <code className={styles.deployedAddress}>{deployedAddress}</code>
@@ -179,7 +179,7 @@ export default function DeployEscrowPage() {
                   disabled={isDeploying}
                   className={styles.deployBtn}
                 >
-                  {isDeploying ? "Deploying via MetaMask..." : account ? "Deploy Contract to Arc Testnet" : "Connect Wallet & Deploy"}
+                  {isDeploying ? "Deploying via MetaMask..." : account ? "Deploy Contract to Arc Mainnet" : "Connect Wallet & Deploy"}
                 </button>
               </div>
             )}
@@ -191,7 +191,7 @@ export default function DeployEscrowPage() {
               If you prefer using the terminal, ensure <code>PRIVATE_KEY</code> is set in your <code>.env</code> and run:
             </p>
             <pre className={styles.codeSnippet}>
-npx hardhat ignition deploy ignition/modules/TaskEscrow.ts --network arcTestnet --deployment-id arc-escrow-v2
+npx hardhat ignition deploy ignition/modules/TaskEscrow.ts --network arcMainnet --deployment-id arc-escrow-v2
             </pre>
           </div>
         </div>

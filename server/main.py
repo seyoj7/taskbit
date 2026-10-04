@@ -53,7 +53,7 @@ WALLET_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 
 def _validate_wallet_address(v: str) -> str:
-    """Shared wallet validation logic."""
+    
     if not WALLET_RE.match(v):
         raise ValueError(
             "Invalid wallet address — must be 0x followed by 40 hex characters"
@@ -108,7 +108,7 @@ class TokenResponse(BaseModel):
 
 
 class WalletAuth(BaseModel):
-    """Legacy or direct connect-wallet payload."""
+    
     wallet_address: str
 
     @field_validator("wallet_address")
@@ -194,7 +194,7 @@ class _WalletActionBase(BaseModel):
 
 
 class TaskClaim(_WalletActionBase):
-    """Deprecated: kept for backward compatibility but no longer used."""
+    
     pass
 
 
@@ -280,12 +280,7 @@ class PosterScoreResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 def verify_github_link(url: str) -> Tuple[bool, str]:
-    """
-    Verifies that a provided link is a valid GitHub Pull Request or Commit URL.
-    Calls the GitHub API to confirm the PR/commit actually exists, with a web
-    fetch fallback. Reads GITHUB_TOKEN from env for higher rate limits.
-    Returns (is_valid: bool, detail: str).
-    """
+    
     if not url:
         return False, "Proof URL cannot be empty."
 
@@ -374,7 +369,7 @@ def verify_github_link(url: str) -> Tuple[bool, str]:
 # ═══════════════════════════════════════════════════════════════
 
 def create_access_token(user_id: int, wallet_address: str) -> str:
-    """Generates a signed JWT access token."""
+    
     expire = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
     payload = {
         "sub": str(user_id),
@@ -388,7 +383,7 @@ def get_current_user_optional(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> Optional[User]:
-    """Extracts and verifies the user from Bearer JWT if provided."""
+    
     if not authorization or not authorization.startswith("Bearer "):
         return None
 
@@ -407,7 +402,7 @@ def get_current_user(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> User:
-    """Strict authentication dependency requiring valid Bearer JWT."""
+    
     user = get_current_user_optional(authorization, db)
     if not user:
         raise HTTPException(
@@ -421,10 +416,7 @@ def assert_caller_permission(
     target_wallet: str,
     current_user: User,
 ):
-    """
-    Strictly verifies that the caller has signed in with a valid wallet signature
-    and that the authenticated session matches the target wallet.
-    """
+    
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -463,7 +455,7 @@ def _get_user_by_wallet_or_404(wallet_address: str, db: Session) -> User:
 
 
 def _assert_status(task: Task, expected: str | list, action: str):
-    """Check task is in the expected status (or one of a list of statuses)."""
+    
     if isinstance(expected, str):
         expected = [expected]
     if task.status not in expected:
@@ -474,7 +466,7 @@ def _assert_status(task: Task, expected: str | list, action: str):
 
 
 def _assert_not_archived(task: Task):
-    """Archived tasks are immutable."""
+    
     if task.status == "archived":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -483,7 +475,7 @@ def _assert_not_archived(task: Task):
 
 
 def _task_to_response(task: Task, db: Session) -> dict:
-    """Build a TaskResponse-compatible dict with submission_count."""
+    
     count = db.query(Submission).filter(Submission.task_id == task.id).count()
     resp = TaskResponse.model_validate(task).model_dump()
     resp["submission_count"] = count
@@ -501,7 +493,7 @@ def _get_submission_or_404(submission_id: int, db: Session) -> Submission:
 
 
 def _submission_to_response(sub: Submission) -> dict:
-    """Build a SubmissionResponse-compatible dict with worker wallet."""
+    
     resp = SubmissionResponse.model_validate(sub).model_dump()
     if sub.worker:
         resp["worker_wallet_address"] = sub.worker.wallet_address
@@ -559,12 +551,12 @@ async def handle_private_network_access(request: Request, call_next):
 
 @app.get("/")
 def root():
-    return {"message": "Taskbit API is running, connected to the database and Arc Testnet!"}
+    return {"message": "Taskbit API is running, connected to the database and Arc Mainnet!"}
 
 
 @app.get("/escrow/health")
 def escrow_health():
-    """Returns Arc Testnet connection and TaskEscrow contract status."""
+    
     return check_escrow_contract_health()
 
 
@@ -574,9 +566,7 @@ def escrow_health():
 
 @app.post("/users/auth/challenge", response_model=ChallengeResponse)
 def request_auth_challenge(payload: ChallengeRequest):
-    """
-    Step 1 of Wallet Auth: Generates a cryptographically unique sign-in challenge.
-    """
+    
     # Clean up expired challenges
     now = time.time()
     expired = [k for k, v in CHALLENGES.items() if v["expires_at"] < now]
@@ -609,9 +599,7 @@ def request_auth_challenge(payload: ChallengeRequest):
 
 @app.post("/users/auth/verify", response_model=TokenResponse)
 def verify_wallet_signature(payload: VerifyRequest, db: Session = Depends(get_db)):
-    """
-    Step 2 of Wallet Auth: Verifies cryptographic signature and issues JWT.
-    """
+    
     challenge = CHALLENGES.get(payload.nonce)
     if not challenge:
         raise HTTPException(
@@ -672,9 +660,7 @@ def verify_wallet_signature(payload: VerifyRequest, db: Session = Depends(get_db
 
 @app.post("/users/auth/wallet", response_model=UserResponse)
 def connect_wallet(payload: WalletAuth, db: Session = Depends(get_db)):
-    """
-    Direct connect-wallet endpoint for development or initial lookup.
-    """
+    
     user = db.query(User).filter(User.wallet_address == payload.wallet_address.lower()).first()
     if user:
         return user
@@ -721,7 +707,7 @@ def create_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new task. Status starts as 'posted' until funded on-chain."""
+    
     assert_caller_permission(payload.poster_wallet_address, current_user)
     poster = _get_user_by_wallet_or_404(payload.poster_wallet_address, db)
 
@@ -819,7 +805,7 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
 
 @app.get("/tasks/{task_id}/escrow")
 def get_task_escrow(task_id: int, db: Session = Depends(get_db)):
-    """Fetch real-time on-chain escrow status for a task from Arc Testnet."""
+    
     task = _get_task_or_404(task_id, db)
     onchain = get_onchain_escrow_task(task.id)
     return {
@@ -849,10 +835,7 @@ def record_task_funding(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Records and verifies on-chain task funding.
-    Transitions: posted → funded
-    """
+    
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
     _assert_status(task, "posted", "fund")
@@ -889,10 +872,7 @@ def delete_unfunded_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Delete a task that was never funded (status == 'posted').
-    Only the poster can delete their own unfunded task.
-    """
+    
     task = _get_task_or_404(task_id, db)
     if task.status != "posted":
         raise HTTPException(
@@ -918,7 +898,7 @@ def list_submissions(
     task_id: int,
     db: Session = Depends(get_db),
 ):
-    """List all submissions for a task, newest first."""
+    
     _get_task_or_404(task_id, db)
     subs = (
         db.query(Submission)
@@ -936,11 +916,7 @@ def submit_proof(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Worker submits proof of completed work with GitHub verification.
-    Multiple workers can submit on the same funded task.
-    A worker can update their submission if it was previously rejected.
-    """
+    
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
     _assert_status(task, ["funded", "submitted", "rejected"], "submit proof")
@@ -1021,11 +997,7 @@ def approve_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Poster approves a specific submission and records on-chain payment release.
-    Verifies the releasePayment tx on-chain before updating state.
-    Sets the winning worker on the task and marks other submissions as rejected.
-    """
+    
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
     _assert_status(task, "submitted", "approve")
@@ -1093,11 +1065,7 @@ def reject_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Poster rejects a specific submission.
-    If all submissions are rejected, task status reverts to 'rejected'
-    (workers can still submit new proofs if the task hasn't expired).
-    """
+    
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
     _assert_status(task, "submitted", "reject")
@@ -1150,14 +1118,7 @@ def refund_expired_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Refund an expired task.
-    Verifies the on-chain refundTask tx before updating state.
-    Transitions: funded/submitted/rejected → refunded → archived
-
-    The smart contract enforces:
-    - Task must be past expiry
-    """
+    
     assert_caller_permission(payload.wallet_address, current_user)
     task = _get_task_or_404(task_id, db)
     if task.status not in ("funded", "submitted", "rejected"):
@@ -1206,7 +1167,7 @@ def refund_expired_task(
 # ═══════════════════════════════════════════════════════════════
 
 def _review_to_response(review: PosterReview) -> dict:
-    """Build a PosterReviewResponse-compatible dict with reviewer wallet."""
+    
     resp = PosterReviewResponse.model_validate(review).model_dump()
     if review.reviewer:
         resp["reviewer_wallet_address"] = review.reviewer.wallet_address
@@ -1220,14 +1181,7 @@ def create_poster_review(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Worker reviews a poster after their submission was rejected or selected.
-    Rules:
-      - Only the worker who owns the submission can review.
-      - Submission must have status 'rejected' or 'selected'.
-      - Auto-rejections ("Another submission was selected") are NOT reviewable.
-      - One review per submission (unique constraint, 409 on duplicate).
-    """
+    
     submission = _get_submission_or_404(submission_id, db)
 
     # Only the submission owner can leave a review
@@ -1290,10 +1244,7 @@ def get_poster_reviews(
     wallet_address: str,
     db: Session = Depends(get_db),
 ):
-    """
-    Get all reviews for a poster plus their computed score.
-    Score = upvotes − downvotes, computed at read time.
-    """
+    
     poster = _get_user_by_wallet_or_404(wallet_address, db)
 
     reviews = (
@@ -1321,7 +1272,7 @@ def get_submission_review(
     submission_id: int,
     db: Session = Depends(get_db),
 ):
-    """Get the review for a specific submission, if one exists."""
+    
     _get_submission_or_404(submission_id, db)
     review = db.query(PosterReview).filter(PosterReview.submission_id == submission_id).first()
     if not review:

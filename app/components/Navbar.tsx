@@ -132,7 +132,7 @@ export default function Navbar() {
                     <span className={styles.networkLabel}>Network</span>
                     <span className={styles.networkValue}>
                       <span className={styles.networkDot} />
-                      Arc Testnet
+                      Arc Mainnet
                     </span>
                   </div>
 

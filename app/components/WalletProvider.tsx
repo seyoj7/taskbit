@@ -11,19 +11,22 @@ import {
   User,
 } from './api';
 
-export const ARC_TESTNET_CHAIN_ID = 5042002;
-export const ARC_TESTNET_HEX_CHAIN_ID = '0x4cef52';
+export const ARC_CHAIN_ID = 5042;
+export const ARC_HEX_CHAIN_ID = '0x13b2';
 
-export const ARC_TESTNET_PARAMS = {
-  chainId: ARC_TESTNET_HEX_CHAIN_ID,
-  chainName: 'Arc Testnet',
+/** @deprecated Use ARC_CHAIN_ID instead */
+export const ARC_TESTNET_CHAIN_ID = ARC_CHAIN_ID;
+
+export const ARC_NETWORK_PARAMS = {
+  chainId: ARC_HEX_CHAIN_ID,
+  chainName: 'Arc',
   nativeCurrency: {
     name: 'Arc',
     symbol: 'ARC',
     decimals: 18,
   },
-  rpcUrls: ['https://arc-testnet.drpc.org'],
-  blockExplorerUrls: ['https://explorer.testnet.arc.io'],
+  rpcUrls: ['https://rpc.mainnet.arc.io'],
+  blockExplorerUrls: ['https://explorer.arc.io'],
 };
 
 
@@ -32,6 +35,8 @@ interface WalletContextType {
   user: User | null;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
+  switchToArcNetwork: () => Promise<boolean>;
+  /** @deprecated Use switchToArcNetwork instead */
   switchToArcTestnet: () => Promise<boolean>;
   isCorrectNetwork: boolean;
   isLoading: boolean;
@@ -43,6 +48,7 @@ const WalletContext = createContext<WalletContextType>({
   user: null,
   connectWallet: async () => {},
   disconnectWallet: () => {},
+  switchToArcNetwork: async () => false,
   switchToArcTestnet: async () => false,
   isCorrectNetwork: false,
   isLoading: false,
@@ -58,14 +64,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [chainId, setChainId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const verifyIsArcTestnet = async (ethereumObj?: any): Promise<boolean> => {
+  const verifyIsArcNetwork = async (ethereumObj?: any): Promise<boolean> => {
     const eth = ethereumObj || (typeof window !== 'undefined' ? (window as any).ethereum : null);
     if (!eth) return false;
     try {
       const hexId = await eth.request({ method: 'eth_chainId' });
       const numId = typeof hexId === 'string' && hexId.startsWith('0x') ? parseInt(hexId, 16) : Number(hexId);
       setChainId(numId);
-      const isArc = numId === ARC_TESTNET_CHAIN_ID;
+      const isArc = numId === ARC_CHAIN_ID;
       setIsCorrectNetwork(isArc);
       return isArc;
     } catch (err) {
@@ -74,7 +80,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const switchToArcTestnet = async (): Promise<boolean> => {
+  const switchToArcNetwork = async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !(window as any).ethereum) {
       alert("Please install a Web3 wallet like MetaMask.");
       return false;
@@ -85,9 +91,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     try {
       await eth.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: ARC_TESTNET_HEX_CHAIN_ID }],
+        params: [{ chainId: ARC_HEX_CHAIN_ID }],
       });
-      return await verifyIsArcTestnet(eth);
+      return await verifyIsArcNetwork(eth);
     } catch (switchError: any) {
       // 4902 error code indicates the chain has not been added to MetaMask
       if (
@@ -99,27 +105,30 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         try {
           await eth.request({
             method: 'wallet_addEthereumChain',
-            params: [ARC_TESTNET_PARAMS],
+            params: [ARC_NETWORK_PARAMS],
           });
-          return await verifyIsArcTestnet(eth);
+          return await verifyIsArcNetwork(eth);
         } catch (addError) {
-          console.error("Failed to add Arc Testnet to wallet:", addError);
+          console.error("Failed to add Arc network to wallet:", addError);
           return false;
         }
       }
-      console.warn("User rejected network switch to Arc Testnet:", switchError);
+      console.warn("User rejected network switch to Arc:", switchError);
       return false;
     }
   };
 
+  /** @deprecated Use switchToArcNetwork instead */
+  const switchToArcTestnet = switchToArcNetwork;
+
   const authenticateWithSignature = async (address: string, provider: ethers.BrowserProvider) => {
     try {
-      // Verify network is strictly Arc Testnet before prompting signature
+      // Verify network is strictly Arc Mainnet before prompting signature
       const network = await provider.getNetwork();
-      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
+      if (Number(network.chainId) !== ARC_CHAIN_ID) {
         setIsCorrectNetwork(false);
         disconnectWallet();
-        alert("Wallet is not on Arc Testnet. Authentication cancelled.");
+        alert("Wallet is not on Arc Mainnet. Authentication cancelled.");
         return;
       }
 
@@ -148,7 +157,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const authenticate = async (address: string, provider?: ethers.BrowserProvider) => {
     // Strictly verify network before allowing authentication
     if (typeof window !== 'undefined' && (window as any).ethereum) {
-      const isArc = await verifyIsArcTestnet();
+      const isArc = await verifyIsArcNetwork();
       if (!isArc) {
         disconnectWallet();
         return;
@@ -180,41 +189,41 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       try {
         const eth = (window as any).ethereum;
 
-        // 1. Strictly enforce Arc Testnet network upfront
-        const isArcAlready = await verifyIsArcTestnet(eth);
+        // 1. Strictly enforce Arc Mainnet network upfront
+        const isArcAlready = await verifyIsArcNetwork(eth);
         if (!isArcAlready) {
-          const switched = await switchToArcTestnet();
+          const switched = await switchToArcNetwork();
           if (!switched) {
             setIsCorrectNetwork(false);
             setIsLoading(false);
             disconnectWallet();
-            alert("Taskbit strictly operates on Arc Testnet (Chain ID 5042002). Please switch network to Arc Testnet to connect.");
+            alert("Taskbit operates on Arc Mainnet (Chain ID 5042). Please switch network to Arc to connect.");
             return;
           }
         }
 
         const provider = new ethers.BrowserProvider(eth);
         const network = await provider.getNetwork();
-        if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
+        if (Number(network.chainId) !== ARC_CHAIN_ID) {
           setIsCorrectNetwork(false);
           setIsLoading(false);
           disconnectWallet();
-          alert("Wallet is not on Arc Testnet (Chain ID 5042002). Connection cancelled.");
+          alert("Wallet is not on Arc Mainnet (Chain ID 5042). Connection cancelled.");
           return;
         }
 
         setIsCorrectNetwork(true);
-        setChainId(ARC_TESTNET_CHAIN_ID);
+        setChainId(ARC_CHAIN_ID);
 
         // 2. Request user accounts
         const accounts = await provider.send("eth_requestAccounts", []);
         if (accounts.length > 0) {
           // Double check network once more after account approval
           const postApprovalNetwork = await provider.getNetwork();
-          if (Number(postApprovalNetwork.chainId) !== ARC_TESTNET_CHAIN_ID) {
+          if (Number(postApprovalNetwork.chainId) !== ARC_CHAIN_ID) {
             setIsCorrectNetwork(false);
             disconnectWallet();
-            alert("Connection cancelled: active network must be Arc Testnet (Chain ID 5042002).");
+            alert("Connection cancelled: active network must be Arc Mainnet (Chain ID 5042).");
             return;
           }
           await authenticate(accounts[0], provider);
@@ -242,7 +251,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
       const checkConnection = async () => {
         try {
-          const isArc = await verifyIsArcTestnet(eth);
+          const isArc = await verifyIsArcNetwork(eth);
           if (!isArc) {
             setIsCorrectNetwork(false);
             disconnectWallet();
@@ -266,11 +275,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       checkConnection();
 
       const handleAccountsChanged = async (accounts: string[]) => {
-        const isArc = await verifyIsArcTestnet(eth);
+        const isArc = await verifyIsArcNetwork(eth);
         if (!isArc) {
           setIsCorrectNetwork(false);
           disconnectWallet();
-          alert("Wallet disconnected: Taskbit strictly operates on Arc Testnet (Chain ID 5042002).");
+          alert("Wallet disconnected: Taskbit operates on Arc Mainnet (Chain ID 5042).");
           return;
         }
 
@@ -290,10 +299,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
         setChainId(chainIdNum);
 
-        if (chainIdNum !== ARC_TESTNET_CHAIN_ID) {
+        if (chainIdNum !== ARC_CHAIN_ID) {
           setIsCorrectNetwork(false);
           disconnectWallet();
-          alert(`Network switched to chain ${chainIdNum}. Taskbit only operates on Arc Testnet (Chain ID 5042002). Your wallet has been disconnected.`);
+          alert(`Network switched to chain ${chainIdNum}. Taskbit only operates on Arc Mainnet (Chain ID 5042). Your wallet has been disconnected.`);
         } else {
           setIsCorrectNetwork(true);
           checkConnection();
@@ -319,7 +328,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         user,
         connectWallet,
         disconnectWallet,
-        switchToArcTestnet,
+        switchToArcNetwork,
+        switchToArcTestnet: switchToArcNetwork,
         isCorrectNetwork,
         isLoading,
         chainId,

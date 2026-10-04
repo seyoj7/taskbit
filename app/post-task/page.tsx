@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 import { createTask, recordTaskFunding, deleteTask, getAuthToken } from '../components/api';
-import { useWallet, ARC_TESTNET_CHAIN_ID } from '../components/WalletProvider';
+import { useWallet, ARC_CHAIN_ID } from '../components/WalletProvider';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { TASK_ESCROW_ABI, TASK_ESCROW_ADDRESS, USDC_ADDRESS, USDC_ABI } from '../components/contracts';
@@ -13,7 +13,7 @@ import styles from './post-task.module.css';
 
 export default function PostTask() {
   const router = useRouter();
-  const { account, user, connectWallet, switchToArcTestnet } = useWallet();
+  const { account, user, connectWallet, switchToArcNetwork } = useWallet();
   const [title, setTitle] = useState('');
   const [githubRepo, setGithubRepo] = useState('');
   const [description, setDescription] = useState('');
@@ -60,15 +60,15 @@ export default function PostTask() {
       return;
     }
 
-    // 2. Strict Arc Testnet check upfront before backend or contract calls
+    // 2. Strict Arc Mainnet check upfront before backend or contract calls
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const network = await provider.getNetwork();
-      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
-        setStatusMsg('Switching wallet to Arc Testnet (Chain ID 5042002)...');
-        const switched = await switchToArcTestnet();
+      if (Number(network.chainId) !== ARC_CHAIN_ID) {
+        setStatusMsg('Switching wallet to Arc Mainnet (Chain ID 5042)...');
+        const switched = await switchToArcNetwork();
         if (!switched) {
-          setError('Taskbit strictly operates on Arc Testnet (Chain ID 5042002). Please switch network in your wallet to continue.');
+          setError('Taskbit operates on Arc Mainnet (Chain ID 5042). Please switch network in your wallet to continue.');
           return;
         }
       }
@@ -93,7 +93,7 @@ export default function PostTask() {
       createdTaskId = createdTask.id;
 
       if (typeof window !== 'undefined' && (window as any).ethereum) {
-        setStatusMsg('Connecting to Arc Testnet wallet...');
+        setStatusMsg('Connecting to Arc Mainnet wallet...');
         const provider = new ethers.BrowserProvider((window as any).ethereum);
         const signer = await provider.getSigner();
 
@@ -138,7 +138,7 @@ export default function PostTask() {
           } catch (createErr: any) {
             if (createErr.code === 'CALL_EXCEPTION' || createErr.message?.includes('missing revert data')) {
               throw new Error(
-                `The contract at ${TASK_ESCROW_ADDRESS} does not support open task creation (createTask without upfront worker). Please deploy the updated TaskEscrow contract to Arc Testnet.`
+                `The contract at ${TASK_ESCROW_ADDRESS} does not support open task creation (createTask without upfront worker). Please deploy the updated TaskEscrow contract to Arc Mainnet.`
               );
             }
             throw createErr;

@@ -27,7 +27,7 @@ import {
   PosterReview,
   PosterScore,
 } from '../../components/api';
-import { useWallet, ARC_TESTNET_CHAIN_ID } from '../../components/WalletProvider';
+import { useWallet, ARC_CHAIN_ID } from '../../components/WalletProvider';
 import { TASK_ESCROW_ABI, TASK_ESCROW_ADDRESS, USDC_ADDRESS, USDC_ABI } from '../../components/contracts';
 
 
@@ -90,7 +90,7 @@ function getSubmissionStatusClass(status: string): string {
 export default function TaskDetail({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const router = useRouter();
-  const { account, user, connectWallet, switchToArcTestnet } = useWallet();
+  const { account, user, connectWallet, switchToArcNetwork } = useWallet();
   const [task, setTask] = useState<Task | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [workerUser, setWorkerUser] = useState<User | null>(null);
@@ -286,10 +286,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const network = await provider.getNetwork();
-      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
-        setTxStatus("Switching wallet to Arc Testnet (Chain ID 5042002)...");
-        const switched = await switchToArcTestnet();
-        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Testnet (Chain ID 5042002).");
+      if (Number(network.chainId) !== ARC_CHAIN_ID) {
+        setTxStatus("Switching wallet to Arc Mainnet (Chain ID 5042)...");
+        const switched = await switchToArcNetwork();
+        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Mainnet (Chain ID 5042).");
       }
       const signer = await provider.getSigner();
 
@@ -328,7 +328,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
         } catch (createErr: any) {
           if (createErr.code === 'CALL_EXCEPTION' || createErr.message?.includes('missing revert data')) {
             throw new Error(
-              `The contract at ${TASK_ESCROW_ADDRESS} does not support open task creation (createTask without upfront worker). Please deploy the updated TaskEscrow contract to Arc Testnet.`
+              `The contract at ${TASK_ESCROW_ADDRESS} does not support open task creation (createTask without upfront worker). Please deploy the updated TaskEscrow contract to Arc Mainnet.`
             );
           }
           throw createErr;
@@ -364,10 +364,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const network = await provider.getNetwork();
-      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
-        setTxStatus("Switching wallet to Arc Testnet (Chain ID 5042002)...");
-        const switched = await switchToArcTestnet();
-        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Testnet (Chain ID 5042002).");
+      if (Number(network.chainId) !== ARC_CHAIN_ID) {
+        setTxStatus("Switching wallet to Arc Mainnet (Chain ID 5042)...");
+        const switched = await switchToArcNetwork();
+        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Mainnet (Chain ID 5042).");
       }
       const signer = await provider.getSigner();
 
@@ -473,16 +473,16 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
     }
 
     setIsSubmitting(true);
-    setTxStatus("Processing refund on Arc Testnet...");
+    setTxStatus("Processing refund on Arc Mainnet...");
 
     try {
       if (!(window as any).ethereum) throw new Error("No crypto wallet found.");
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const network = await provider.getNetwork();
-      if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
-        setTxStatus("Switching wallet to Arc Testnet (Chain ID 5042002)...");
-        const switched = await switchToArcTestnet();
-        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Testnet (Chain ID 5042002).");
+      if (Number(network.chainId) !== ARC_CHAIN_ID) {
+        setTxStatus("Switching wallet to Arc Mainnet (Chain ID 5042)...");
+        const switched = await switchToArcNetwork();
+        if (!switched) throw new Error("Taskbit escrow strictly operates on Arc Mainnet (Chain ID 5042).");
       }
       const signer = await provider.getSigner();
       const escrow = new ethers.Contract(TASK_ESCROW_ADDRESS, TASK_ESCROW_ABI, signer);
@@ -962,7 +962,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                   <dd className={onchainEscrow?.funded ? styles.escrowDdUp : styles.escrowDdMuted}>
                     {task.fund_tx_hash ? (
                       <a
-                        href={`https://explorer.testnet.arc.io/tx/${task.fund_tx_hash}`}
+                        href={`https://explorer.arc.io/tx/${task.fund_tx_hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         title="View Deposit Tx on Arc Explorer"
@@ -1129,7 +1129,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                         )}
                       </button>
                       <a
-                        href={`https://explorer.testnet.arc.io/tx/${task.tx_hash}`}
+                        href={`https://explorer.arc.io/tx/${task.tx_hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         title="View on Arc Explorer"
@@ -1171,7 +1171,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
                         )}
                       </button>
                       <a
-                        href={`https://explorer.testnet.arc.io/tx/${task.refund_tx_hash}`}
+                        href={`https://explorer.arc.io/tx/${task.refund_tx_hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         title="View on Arc Explorer"
@@ -1188,7 +1188,7 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
               )}
 
               <div className={styles.contractInfo}>
-                Verified on Arc Testnet · Contract:{' '}
+                Verified on Arc Mainnet · Contract:{' '}
                 <a
                   href={`https://explorer.testnet.arc.io/address/${TASK_ESCROW_ADDRESS}`}
                   target="_blank"

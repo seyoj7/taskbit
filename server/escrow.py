@@ -12,7 +12,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 CONTRACT_ADDRESS_RAW = os.getenv("CONTRACT_ADDRESS")
 if not CONTRACT_ADDRESS_RAW:
     raise RuntimeError("CONTRACT_ADDRESS is not set in .env")
-RPC_URL = os.getenv("ARC_TESTNET_RPC_URL", "https://arc-testnet.drpc.org")
+RPC_URL = os.getenv("ARC_RPC_URL", os.getenv("ARC_TESTNET_RPC_URL", "https://rpc.mainnet.arc.io"))
 
 # Complete TaskEscrow ABI
 TASK_ESCROW_ABI = [{"inputs": [{"internalType": "address", "name": "_usdc", "type": "address"}], "stateMutability": "nonpayable", "type": "constructor"}, {"inputs": [], "name": "AlreadyCompleted", "type": "error"}, {"inputs": [], "name": "AlreadyFunded", "type": "error"}, {"inputs": [], "name": "InvalidBounty", "type": "error"}, {"inputs": [], "name": "InvalidWorker", "type": "error"}, {"inputs": [], "name": "NotFunded", "type": "error"}, {"inputs": [], "name": "OnlyCreator", "type": "error"}, {"inputs": [], "name": "TaskAlreadyExists", "type": "error"}, {"inputs": [], "name": "TaskExpired", "type": "error"}, {"inputs": [], "name": "TaskNotExpired", "type": "error"}, {"inputs": [], "name": "TaskNotFound", "type": "error"}, {"inputs": [], "name": "TransferFailed", "type": "error"}, {"inputs": [], "name": "WorkAlreadySubmitted", "type": "error"}, {"inputs": [], "name": "WorkerNotAssigned", "type": "error"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "PaymentReleased", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "address", "name": "worker", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "bounty", "type": "uint256"}, {"indexed": False, "internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "TaskCreated", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "TaskFunded", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "TaskRefunded", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}], "name": "WorkSubmitted", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}], "name": "WorkerAssigned", "type": "event"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "address", "name": "worker", "type": "address"}], "name": "assignWorker", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "createTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "createTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "getTask", "outputs": [{"components": [{"internalType": "address", "name": "creator", "type": "address"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}, {"internalType": "bool", "name": "funded", "type": "bool"}, {"internalType": "bool", "name": "completed", "type": "bool"}, {"internalType": "bool", "name": "workSubmitted", "type": "bool"}], "internalType": "struct TaskEscrow.Task", "name": "", "type": "tuple"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "owner", "outputs": [{"internalType": "address", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "refundTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "releasePayment", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "submitWork", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "name": "tasks", "outputs": [{"internalType": "address", "name": "creator", "type": "address"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}, {"internalType": "bool", "name": "funded", "type": "bool"}, {"internalType": "bool", "name": "completed", "type": "bool"}, {"internalType": "bool", "name": "workSubmitted", "type": "bool"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "usdc", "outputs": [{"internalType": "contract IERC20", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}]
@@ -21,7 +21,7 @@ ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 
 def get_web3_client() -> Web3:
-    """Returns an initialized Web3 client configured for Arc Testnet."""
+    """Returns an initialized Web3 client configured for Arc Mainnet."""
     return Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 10}))
 
 
@@ -44,7 +44,7 @@ def check_escrow_contract_health() -> Dict[str, Any]:
             "connected": False,
             "rpc_url": RPC_URL,
             "contract_address": CONTRACT_ADDRESS_RAW,
-            "message": "Failed to connect to Arc Testnet RPC"
+            "message": "Failed to connect to Arc RPC"
         }
 
     checksum_addr = Web3.to_checksum_address(CONTRACT_ADDRESS_RAW)
@@ -55,8 +55,8 @@ def check_escrow_contract_health() -> Dict[str, Any]:
         "status": "ok",
         "connected": True,
         "rpc_url": RPC_URL,
-        "chain_id": 5042002,
-        "network": "Arc Testnet",
+        "chain_id": 5042,
+        "network": "Arc Mainnet",
         "contract_address": checksum_addr,
         "is_deployed": len(code) > 0,
         "bytecode_size": len(code),
@@ -124,7 +124,7 @@ def _verify_receipt(tx_hash: str) -> Dict[str, Any]:
     except TransactionNotFound:
         return {
             "verified": False,
-            "error": f"Transaction {tx_hash} not found on Arc Testnet."
+            "error": f"Transaction {tx_hash} not found on Arc."
         }
     except Exception as e:
         return {

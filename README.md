@@ -29,7 +29,7 @@ Taskbit is a decentralized micro-bounty marketplace built for the Arc network. P
                                             Verified Proof
                                                      │
                                        ┌─────────────▼──────┐
-                                       │   Arc Testnet / EVM│
+                                       │   Arc Mainnet / EVM│
                                        │   TaskEscrow.sol   │
                                        │     + USDC Token   │
                                        └────────────────────┘
@@ -71,7 +71,7 @@ taskbit/
 │   ├── contracts/
 │   │   └── TaskEscrow.sol        # Solidity escrow contract
 │   ├── ignition/                 # Hardhat Ignition deployment modules
-│   ├── hardhat.config.ts         # Hardhat configuration (Arc Testnet)
+│   ├── hardhat.config.ts         # Hardhat configuration (Arc Mainnet)
 │   └── package.json              # Contract dependencies
 │
 ├── package.json                  # Root package.json (concurrently runs frontend + server)
@@ -88,7 +88,7 @@ taskbit/
 |---|---|
 | **Frontend** | Next.js 16, React 19, TypeScript, Vanilla CSS, Ethers.js v6 |
 | **Backend** | Python, FastAPI, SQLAlchemy, Pydantic v2, Web3.py, PyJWT |
-| **Blockchain** | Solidity 0.8.27, Hardhat, Arc Testnet (EVM, Chain ID 5042002) |
+| **Blockchain** | Solidity 0.8.27, Hardhat, Arc Mainnet (EVM, Chain ID 5042) |
 | **Database** | PostgreSQL (production) / MySQL / SQLite (development) |
 | **Authentication** | EIP-191 wallet signatures + JWT bearer tokens (7-day expiry) |
 | **Verification** | GitHub REST API (PR & commit validation) |
@@ -245,7 +245,7 @@ All protected endpoints require a `Bearer <JWT>` token obtained via wallet signa
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/` | No | API health check |
-| `GET` | `/escrow/health` | No | Arc Testnet RPC + contract deployment status |
+| `GET` | `/escrow/health` | No | Arc Mainnet RPC + contract deployment status |
 
 ### Authentication
 
@@ -303,7 +303,7 @@ All protected endpoints require a `Bearer <JWT>` token obtained via wallet signa
 ### 1. Prerequisites
 - **Node.js**: v20 or higher
 - **Python**: v3.11 or higher
-- **Web3 Wallet**: MetaMask or any browser EVM wallet connected to Arc Testnet.
+- **Web3 Wallet**: MetaMask or any browser EVM wallet connected to Arc Mainnet.
 
 ### 2. Environment Configuration
 
@@ -317,7 +317,7 @@ Configure your variables:
 
 ```env
 # Arc Blockchain
-ARC_TESTNET_RPC_URL=https://arc-testnet.drpc.org
+ARC_RPC_URL=https://rpc.mainnet.arc.io
 USDC_ADDRESS=0x3600000000000000000000000000000000000000
 CONTRACT_ADDRESS=<deployed-contract-address>
 
@@ -368,7 +368,7 @@ Navigate to [http://localhost:3000/deploy-escrow](http://localhost:3000/deploy-e
 **Hardhat CLI:**
 ```bash
 cd contract
-npx hardhat ignition deploy ignition/modules/TaskEscrow.ts --network arcTestnet
+npx hardhat ignition deploy ignition/modules/TaskEscrow.ts --network arcMainnet
 ```
 
 After deployment, update `CONTRACT_ADDRESS` in your `.env` file with the new address.
