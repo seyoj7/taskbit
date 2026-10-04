@@ -143,7 +143,7 @@ GITHUB_TOKEN=
 JWT_SECRET=your-random-jwt-secret-key
 
 # Database
-DATABASE_URL=sqlite:///../database/taskbit.db
+DATABASE_URL=postgresql://user:password@host:5432/dbname
 ```
 
 ### 3. Installation & Local Development

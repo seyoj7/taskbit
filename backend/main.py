@@ -802,7 +802,7 @@ def list_tasks(
                 from datetime import datetime, timezone
                 now = datetime.now(timezone.utc).replace(tzinfo=None)
                 query = query.filter(
-                    Task.status.in_(["funded", "rejected"]),
+                    Task.status.in_(["funded", "submitted", "rejected"]),
                     Task.expires_at >= now
                 )
             else:

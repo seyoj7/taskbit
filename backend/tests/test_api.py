@@ -11,18 +11,11 @@ from sqlalchemy.orm import sessionmaker
 
 os.environ["TESTING"] = "1"
 
-# Temporary SQLite database file for isolated testing
-test_db_path = os.path.join(tempfile.gettempdir(), "taskbit_test.db")
-if os.path.exists(test_db_path):
-    try:
-        os.remove(test_db_path)
-    except Exception:
-        pass
+# PostgreSQL database for isolated testing
+# You should create a 'taskbit_test' database locally for this to work out of the box
+test_db_url = os.getenv("TEST_DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/taskbit_test")
 
-test_engine = create_engine(
-    f"sqlite:///{test_db_path}",
-    connect_args={"check_same_thread": False},
-)
+test_engine = create_engine(test_db_url)
 TestingSessionLocal = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
 
 from database import Base, get_db

@@ -10,7 +10,6 @@ import styles from './dashboard.module.css';
 const STATUS_TABS = [
   { label: 'All Tasks', value: 'all' },
   { label: 'Open', value: 'funded' },
-  { label: 'Reviewing', value: 'submitted' },
   { label: 'Approved', value: 'approved' },
   { label: 'Refunded', value: 'failed' },
 ] as const;

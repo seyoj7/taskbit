@@ -35,9 +35,9 @@ export default function TaskCard({ id, title, description, bounty, status, poste
     }
     if (s === 'submitted') {
       return (
-        <span className={styles.statusReview}>
-          <span className={styles.dot} />
-          Reviewing
+        <span className={styles.statusOpen}>
+          <span className={styles.dotPulse} />
+          Open
         </span>
       );
     }
