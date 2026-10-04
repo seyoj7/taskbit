@@ -6,6 +6,8 @@ import Footer from './components/Footer';
 import { fetchTasks, Task } from './components/api';
 import styles from './page.module.css';
 
+const repSequence = [10, 3, -15, 9, 18, 3, -17, 24, 8, -2, 15, -8, -16];
+
 export default function Home() {
   const [stats, setStats] = useState({
     totalVolume: 0,
@@ -37,6 +39,42 @@ export default function Home() {
       mounted = false;
     };
   }, []);
+
+  const [repIndex, setRepIndex] = useState(0);
+  const [repText, setRepText] = useState('+10');
+  const [isRepDeleting, setIsRepDeleting] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const targetNum = repSequence[repIndex];
+    const targetStr = targetNum > 0 ? `+${targetNum}` : `${targetNum}`;
+
+    let timer: any;
+    if (isRepDeleting) {
+      if (repText === '') {
+        setIsRepDeleting(false);
+        setRepIndex((prev) => (prev + 1) % repSequence.length);
+      } else {
+        timer = setTimeout(() => {
+          if (mounted) setRepText((prev) => prev.slice(0, -1));
+        }, 120);
+      }
+    } else {
+      if (repText === targetStr) {
+        timer = setTimeout(() => {
+          if (mounted) setIsRepDeleting(true);
+        }, 2500);
+      } else {
+        timer = setTimeout(() => {
+          if (mounted) setRepText(targetStr.slice(0, repText.length + 1));
+        }, 150);
+      }
+    }
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [repText, isRepDeleting, repIndex]);
 
   return (
 
@@ -128,7 +166,7 @@ export default function Home() {
                     </svg>
                     Smart Contract Escrow
                   </span>
-                  <span className={styles.assuranceVal}>Audited & On-Chain</span>
+                  <span className={styles.assuranceVal}>Open Source</span>
                 </div>
                 <div className={styles.assuranceRow}>
                   <span className={styles.assuranceKey}>
@@ -155,10 +193,10 @@ export default function Home() {
 
             <div className={styles.lifecycleGrid}>
               {[
-                { step: '01', title: 'Post Task & Escrow', desc: 'Poster specifies bounty and locks USDC in the smart contract.' },
+                { step: '01', title: 'Post Task & Escrow', desc: 'Creator specifies bounty and locks USDC in the smart contract.' },
                 { step: '02', title: 'Submit PR / Proof', desc: 'Multiple workers can submit a GitHub PR link as proof of work before the deadline.' },
-                { step: '03', title: 'Review & Select', desc: 'Poster reviews all submissions and selects the best contribution.' },
-                { step: '04', title: 'Release USDC', desc: 'Poster approves the selected submission and releases escrowed USDC to the worker.' },
+                { step: '03', title: 'Review & Select', desc: 'Creator reviews all submissions and selects the best contribution.' },
+                { step: '04', title: 'Release USDC', desc: 'Creator approves the selected submission and releases escrowed USDC to the worker.' },
               ].map((item, idx) => (
                 <div
                   key={idx}
@@ -183,6 +221,49 @@ export default function Home() {
             </div>
           </section>
 
+          <section className={styles.reputationSection}>
+            <div className={styles.reputationLeft}>
+              <h2 className={styles.reputationTitle}>Creator earns reputation score in public.</h2>
+              <div className={styles.reputationList}>
+                <div className={styles.reputationItem}>
+                  <h3 className={styles.reputationItemTitle}>Rate every outcome.</h3>
+                  <p className={styles.reputationItemSub}>Upvote or downvote with a comment.</p>
+                </div>
+                <div className={styles.reputationItem}>
+                  <h3 className={styles.reputationItemTitle}>One review per submission.</h3>
+                  <p className={styles.reputationItemSub}>No spam. No revenge reviews.</p>
+                </div>
+                <div className={styles.reputationItem}>
+                  <h3 className={styles.reputationItemTitle}>Know who pays fairly.</h3>
+                  <p className={styles.reputationItemSub}>Score = upvotes minus downvotes.</p>
+                </div>
+              </div>
+            </div>
+            <div className={styles.reputationRight}>
+              <div className={styles.reputationScoreContainer}>
+                <span className={repText.startsWith('-') ? styles.reputationScoreNegative : styles.reputationScorePositive}>
+                  {repText || '\u200B'}
+                </span>
+                <span className={styles.typingCursor}>|</span>
+              </div>
+              <div className={styles.reputationLabel}>Creator reputation score</div>
+            </div>
+          </section>
+
+          <section className={styles.ctaSection}>
+            <h2 className={styles.ctaTitle}>Ready to start building?</h2>
+            <p className={styles.ctaDesc}>
+              Join the first Arc-native decentralized marketplace. Post tasks with guaranteed escrow, or start completing bounties today.
+            </p>
+            <div className={styles.ctaButtonGroup}>
+              <a href="/post-task" className={styles.ctaButtonPrimary}>
+                Post a Task
+              </a>
+              <a href="/marketplace" className={styles.ctaButtonSecondary}>
+                Explore Bounties
+              </a>
+            </div>
+          </section>
         </div>
       </main>
 

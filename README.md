@@ -74,7 +74,6 @@ taskbit/
 │   ├── hardhat.config.ts         # Hardhat configuration (Arc Testnet)
 │   └── package.json              # Contract dependencies
 │
-├── database/                     # Database files (SQLite dev DB)
 ├── package.json                  # Root package.json (concurrently runs frontend + server)
 ├── next.config.ts                # Next.js configuration
 ├── tsconfig.json                 # TypeScript configuration
