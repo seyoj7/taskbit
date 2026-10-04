@@ -259,7 +259,7 @@ export default function PostTask() {
               <div className={styles.inputWrapper}>
                 <input
                   type="number"
-                  min="1"
+                  min="0.1"
                   step="0.01"
                   value={bounty}
                   onChange={(e) => setBounty(e.target.value ? Number(e.target.value) : '')}
