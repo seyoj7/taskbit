@@ -14,7 +14,7 @@ project-root/
 ├── app/
 │   ├── ...all frontend files and folders...
 │
-├── backend/
+├── server/
 │   ├── ...all backend files and folders...
 │
 ├── README.md
@@ -57,13 +57,13 @@ app/
 
 ## Backend Rule
 
-All backend-related code must be placed inside a folder named backend.
+All backend-related code must be placed inside a folder named server.
 
 ## Separation Rule
 
 Never mix frontend and backend files.
 
 Frontend → app/
-Backend → backend/
+Backend → server/
 
 If a file is needed by both sides, place it in an appropriate shared/root-level location or duplicate the necessary implementation rather than incorrectly mixing frontend and backend code.

@@ -58,7 +58,7 @@ taskbit/
 │   ├── layout.tsx                # Root layout with global providers
 │   └── globals.css               # Global design tokens & styles
 │
-├── backend/                      # FastAPI backend
+├── server/                       # FastAPI server
 │   ├── main.py                   # All API routes & business logic
 │   ├── database.py               # SQLAlchemy models & migrations
 │   ├── escrow.py                 # On-chain escrow verification (Web3.py)
@@ -75,7 +75,7 @@ taskbit/
 │   └── package.json              # Contract dependencies
 │
 ├── database/                     # Database files (SQLite dev DB)
-├── package.json                  # Root package.json (concurrently runs frontend + backend)
+├── package.json                  # Root package.json (concurrently runs frontend + server)
 ├── next.config.ts                # Next.js configuration
 ├── tsconfig.json                 # TypeScript configuration
 └── .env.example                  # Environment variable template
@@ -109,30 +109,30 @@ FUNDED → (no submissions + expired) → REFUNDED → ARCHIVED
 ```
 
 1. **Create & Fund Task**:
-   - Creator registers a task and locks the USDC bounty in the escrow contract in one atomic transaction. The creator must approve the USDC transfer first:
+   - Creator registers a task (optionally with an initial worker) and locks the USDC bounty in the escrow contract in one atomic transaction. The creator must approve the USDC transfer first:
      ```solidity
      usdc.approve(address(taskEscrow), bounty);
-     taskEscrow.createTask(taskId, bounty, expiryTimestamp);
+     taskEscrow.createTask(taskId, bounty, expiryTimestamp); // Or with initial worker
      ```
 
-2. **Workers Submit Proofs**:
-   - Multiple workers can submit GitHub PR proofs for the same task before the deadline. Each worker also submits work on-chain to prevent premature refunds:
+2. **Worker Submits Work**:
+   - A worker can submit work on-chain before the deadline. If no worker is currently assigned to the task, this action automatically assigns them:
      ```solidity
      taskEscrow.submitWork(taskId);
      ```
 
-3. **Poster Reviews & Selects**:
-   - The poster reviews all submissions and selects the best one. The chosen worker is assigned on-chain:
+3. **Poster Assigns Worker**:
+   - The poster can explicitly assign or update the chosen worker on-chain at any time before completion:
      ```solidity
      taskEscrow.assignWorker(taskId, selectedWorkerAddress);
      ```
 
 4. **Release or Refund**:
-   - **Work Approved**: The poster approves the selected submission and releases the bounty to that worker:
+   - **Work Approved**: The poster approves the selected submission and releases the bounty to the assigned worker:
      ```solidity
      taskEscrow.releasePayment(taskId);
      ```
-   - **Task Expired & Refunded**: If the task expires with no submissions (or all submissions are rejected), the creator can refund the escrowed USDC:
+   - **Task Expired & Refunded**: Once the task expires, the creator can refund the escrowed USDC (allowed regardless of whether work was submitted, allowing posters to reclaim funds after rejecting submissions):
      ```solidity
      taskEscrow.refundTask(taskId);
      ```
@@ -347,7 +347,7 @@ npm install
 cd contract && npm install && cd ..
 
 # Install Python backend dependencies
-cd backend && pip install -r requirements.txt && cd ..
+cd server && pip install -r requirements.txt && cd ..
 ```
 
 Start both the frontend and backend concurrently:

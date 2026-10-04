@@ -27,13 +27,12 @@ export default function PostTask() {
     if (deadlineMode === '3d') date.setDate(date.getDate() + 3);
     else if (deadlineMode === '1w') date.setDate(date.getDate() + 7);
     else if (deadlineMode === '2w') date.setDate(date.getDate() + 14);
-    
+
     // Format as YYYY-MM-DDThh:mm for datetime-local compatibility (and standard ISO)
     const tzoffset = date.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
     setExpiresAt(localISOTime);
   }, [deadlineMode]);
-  const [fundOnChain, setFundOnChain] = useState(true);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +61,7 @@ export default function PostTask() {
     }
 
     // 2. Strict Arc Testnet check upfront before backend or contract calls
-    if (fundOnChain && typeof window !== 'undefined' && (window as any).ethereum) {
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const network = await provider.getNetwork();
       if (Number(network.chainId) !== ARC_TESTNET_CHAIN_ID) {
@@ -80,7 +79,7 @@ export default function PostTask() {
 
     try {
       setStatusMsg('Creating task record...');
-      const finalDescription = githubRepo 
+      const finalDescription = githubRepo
         ? `**GitHub Repository:** ${githubRepo}\n\n${description}`
         : description;
 
@@ -93,7 +92,7 @@ export default function PostTask() {
       });
       createdTaskId = createdTask.id;
 
-      if (fundOnChain && typeof window !== 'undefined' && (window as any).ethereum) {
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
         setStatusMsg('Connecting to Arc Testnet wallet...');
         const provider = new ethers.BrowserProvider((window as any).ethereum);
         const signer = await provider.getSigner();
@@ -290,7 +289,7 @@ export default function PostTask() {
                   </button>
                 ))}
               </div>
-              
+
               {deadlineMode === 'custom' && (
                 <input
                   type="datetime-local"
@@ -309,12 +308,12 @@ export default function PostTask() {
               <input
                 type="checkbox"
                 id="fundOnChainToggle"
-                checked={fundOnChain}
-                onChange={(e) => setFundOnChain(e.target.checked)}
+                checked={true}
+                readOnly
                 className={styles.checkboxInput}
               />
               <label htmlFor="fundOnChainToggle" className={styles.checkboxLabel}>
-                Fund Escrow with USDC immediately on Arc Testnet
+                Fund Escrow task with USDC
               </label>
             </div>
 
