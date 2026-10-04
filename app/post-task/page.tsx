@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
-import { createTask, recordTaskFunding, getAuthToken } from '../components/api';
+import { createTask, recordTaskFunding, deleteTask, getAuthToken } from '../components/api';
 import { useWallet, ARC_TESTNET_CHAIN_ID } from '../components/WalletProvider';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -155,7 +155,14 @@ export default function PostTask() {
       router.push('/marketplace');
     } catch (err: any) {
       console.error(err);
-      // Task stays as 'posted' (unfunded) — poster can fund it later or leave it
+      // Delete the unfunded task so it doesn't persist as "Pending Funding"
+      if (createdTaskId) {
+        try {
+          await deleteTask(createdTaskId);
+        } catch (deleteErr) {
+          console.warn('Could not clean up unfunded task:', deleteErr);
+        }
+      }
       setError(
         `Task creation cancelled: ${err.code === 4001 || err.message?.includes('rejected')
           ? 'Wallet transaction rejected.'
@@ -167,6 +174,7 @@ export default function PostTask() {
       setStatusMsg(null);
     }
   };
+
 
   return (
     <>

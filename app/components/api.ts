@@ -213,6 +213,16 @@ export async function createTask(payload: {
   return res.json().then(normalizeTaskDates);
 }
 
+export async function deleteTask(taskId: number): Promise<void> {
+  const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to delete task');
+  }
+}
 
 
 export async function fetchTaskById(taskId: number): Promise<Task> {

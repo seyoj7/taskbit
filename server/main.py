@@ -281,8 +281,9 @@ class PosterScoreResponse(BaseModel):
 
 def verify_github_link(url: str) -> Tuple[bool, str]:
     """
-    Verifies that a provided link is a valid GitHub Pull Request or Commit.
-    Enforces https://github.com/ domain and checks existence.
+    Verifies that a provided link is a valid GitHub Pull Request or Commit URL.
+    Calls the GitHub API to confirm the PR/commit actually exists, with a web
+    fetch fallback. Reads GITHUB_TOKEN from env for higher rate limits.
     Returns (is_valid: bool, detail: str).
     """
     if not url:
@@ -296,7 +297,7 @@ def verify_github_link(url: str) -> Tuple[bool, str]:
     if parsed.netloc.lower() not in ("github.com", "www.github.com"):
         return False, "Proof must be a valid GitHub URL (https://github.com/...)."
 
-    # Bypass external network calls during unit testing if marked
+    # Bypass external network calls during unit testing
     if os.getenv("TESTING") == "1" or "mock-proof" in url or "test-owner" in parsed.path:
         return True, "Mock GitHub proof accepted in test environment."
 
@@ -322,7 +323,7 @@ def verify_github_link(url: str) -> Tuple[bool, str]:
             if e.code == 404:
                 return False, f"GitHub PR #{pull_num} in {owner}/{repo} not found or repository is private."
             elif e.code == 403:
-                # Rate limited -> fallback to web check below
+                # Rate limited — fall through to web check below
                 pass
             else:
                 return False, f"GitHub API error: HTTP {e.code}"
@@ -349,7 +350,7 @@ def verify_github_link(url: str) -> Tuple[bool, str]:
         except Exception:
             pass
 
-    # 3. Fallback: direct GET request to GitHub URL to verify page exists
+    # 3. Fallback: direct GET to the GitHub URL to verify the page exists
     try:
         web_req = urllib.request.Request(
             url,
@@ -880,6 +881,33 @@ def record_task_funding(
     db.commit()
     db.refresh(task)
     return _task_to_response(task, db)
+
+
+@app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_unfunded_task(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a task that was never funded (status == 'posted').
+    Only the poster can delete their own unfunded task.
+    """
+    task = _get_task_or_404(task_id, db)
+    if task.status != "posted":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only unfunded (posted) tasks can be deleted",
+        )
+    poster = db.query(User).filter(User.id == task.poster_id).first()
+    if not poster or poster.wallet_address.lower() != current_user.wallet_address.lower():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the task poster can delete this task",
+        )
+    db.delete(task)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── Submissions ───────────────────────────────────────────────

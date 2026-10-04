@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:frontend\" \"wait-on tcp:3000 && npm run dev:server\"",
+    "dev": "concurrently \"npm run dev:server\" \"wait-on tcp:8000 && npm run dev:frontend\"",
     "dev:frontend": "next dev",
     "dev:server": "cd server && python main.py",
     "build": "next build",
