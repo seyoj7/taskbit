@@ -13,7 +13,7 @@ export default function Footer() {
         
         <div className={styles.links}>
           <a href="https://github.com/seyoj7/taskbit" target="_blank" rel="noopener noreferrer" className={styles.link}>GitHub ↗</a>
-          <a href="https://explorer.testnet.arc.io" target="_blank" rel="noopener noreferrer" className={styles.link}>Arc Explorer ↗</a>
+          <a href="https://docs.arc.io/" target="_blank" rel="noopener noreferrer" className={styles.link}>Arc Docs ↗</a>
         </div>
       </div>
     </footer>

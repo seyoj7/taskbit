@@ -44,13 +44,13 @@ export default function Home() {
       <Navbar />
 
       <main className={styles.main}>
-        
+
         <div className={styles.heroContainer}>
-          
+
           <section className={styles.heroSection}>
             <div className={styles.heroLeft}>
               <h1 className={styles.heroTitle}>
-                The Web3 native <br/>
+                The Web3 native <br />
                 <span className="text-gradient-lime">Proof-of-Work</span> Marketplace
               </h1>
               <p className={styles.heroSubtitle}>
@@ -71,7 +71,7 @@ export default function Home() {
               <div className={styles.statsGrid}>
                 <div className={styles.statBox}>
                   <div className={styles.statTopRow}>
-                    <span className={styles.statLabel}>Total Escrow</span>
+                    <span className={styles.statLabel}>Total Volume</span>
                     <span className={styles.statTag}>USDC</span>
                   </div>
                   <div className={styles.statValueAccent}>
@@ -84,7 +84,7 @@ export default function Home() {
 
                 <div className={styles.statBox}>
                   <div className={styles.statTopRow}>
-                    <span className={styles.statLabel}>Active Bounties</span>
+                    <span className={styles.statLabel}>Total Bounties</span>
                     <span className={styles.statTag}>{stats.openCount} Open</span>
                   </div>
                   <div className={styles.statValue}>
