@@ -1,13 +1,20 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-import sys
-import os
+from server.database import init_db
+from server.main import app as main_app
 
-# Add the server directory to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'server'))
 
-from main import app as main_app
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # The mounted FastAPI app's lifespan is not run by this wrapper, so ensure
+    # the full database schema from the root ASGI app that Vercel starts.
+    init_db()
+    yield
+
+
 # Vercel entrypoint
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 # Mount the existing FastAPI app under /api so it receives the correct paths
 app.mount("/api", main_app)

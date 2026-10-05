@@ -14,34 +14,64 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from database import AuthChallenge, PosterReview, Submission, Task, User, get_db
-from escrow import (
-    check_escrow_contract_health,
-    get_onchain_escrow_task,
-    get_web3_client,
-    verify_payment_release_tx,
-    verify_task_funded_tx,
-    verify_task_refunded_tx,
-)
-from schemas import (
-    ChallengeRequest,
-    ChallengeResponse,
-    PosterReviewCreate,
-    PosterReviewResponse,
-    PosterScoreResponse,
-    SubmissionResponse,
-    TaskApprove,
-    TaskCreate,
-    TaskFund,
-    TaskRefund,
-    TaskReject,
-    TaskResponse,
-    TaskSubmitProof,
-    TokenResponse,
-    UserResponse,
-    VerifyRequest,
-    WalletAuth,
-)
+if __package__:
+    from .database import AuthChallenge, PosterReview, Submission, Task, User, get_db
+    from .escrow import (
+        check_escrow_contract_health,
+        get_onchain_escrow_task,
+        get_web3_client,
+        verify_payment_release_tx,
+        verify_task_funded_tx,
+        verify_task_refunded_tx,
+    )
+    from .schemas import (
+        ChallengeRequest,
+        ChallengeResponse,
+        PosterReviewCreate,
+        PosterReviewResponse,
+        PosterScoreResponse,
+        SubmissionResponse,
+        TaskApprove,
+        TaskCreate,
+        TaskFund,
+        TaskRefund,
+        TaskReject,
+        TaskResponse,
+        TaskSubmitProof,
+        TokenResponse,
+        UserResponse,
+        VerifyRequest,
+        WalletAuth,
+    )
+else:
+    from database import AuthChallenge, PosterReview, Submission, Task, User, get_db
+    from escrow import (
+        check_escrow_contract_health,
+        get_onchain_escrow_task,
+        get_web3_client,
+        verify_payment_release_tx,
+        verify_task_funded_tx,
+        verify_task_refunded_tx,
+    )
+    from schemas import (
+        ChallengeRequest,
+        ChallengeResponse,
+        PosterReviewCreate,
+        PosterReviewResponse,
+        PosterScoreResponse,
+        SubmissionResponse,
+        TaskApprove,
+        TaskCreate,
+        TaskFund,
+        TaskRefund,
+        TaskReject,
+        TaskResponse,
+        TaskSubmitProof,
+        TokenResponse,
+        UserResponse,
+        VerifyRequest,
+        WalletAuth,
+    )
 
 router = APIRouter()
 

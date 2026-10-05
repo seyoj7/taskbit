@@ -1,11 +1,25 @@
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from routes import router
+if __package__:
+    from .database import init_db
+    from .routes import router
+else:
+    from database import init_db
+    from routes import router
 
-app = FastAPI(title="Taskbit API", version="2.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="Taskbit API", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
