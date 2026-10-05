@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { ethers } from 'ethers';
 import {
   authWallet,
@@ -63,6 +63,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [isCorrectNetwork, setIsCorrectNetwork] = useState<boolean>(false);
   const [chainId, setChainId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const authInFlightRef = useRef<Map<string, Promise<void>>>(new Map());
 
   const verifyIsArcNetwork = async (ethereumObj?: any): Promise<boolean> => {
     const eth = ethereumObj || (typeof window !== 'undefined' ? (window as any).ethereum : null);
@@ -121,37 +122,51 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   /** @deprecated Use switchToArcNetwork instead */
   const switchToArcTestnet = switchToArcNetwork;
 
-  const authenticateWithSignature = async (address: string, provider: ethers.BrowserProvider) => {
-    try {
-      // Verify network is strictly Arc Mainnet before prompting signature
-      const network = await provider.getNetwork();
-      if (Number(network.chainId) !== ARC_CHAIN_ID) {
-        setIsCorrectNetwork(false);
+  const authenticateWithSignature = (address: string, provider: ethers.BrowserProvider): Promise<void> => {
+    const addressKey = address.toLowerCase();
+    const existingAuthentication = authInFlightRef.current.get(addressKey);
+    if (existingAuthentication) return existingAuthentication;
+
+    const authentication = (async () => {
+      try {
+        // Verify network is strictly Arc Mainnet before prompting signature
+        const network = await provider.getNetwork();
+        if (Number(network.chainId) !== ARC_CHAIN_ID) {
+          setIsCorrectNetwork(false);
+          disconnectWallet();
+          alert("Wallet is not on Arc Mainnet. Authentication cancelled.");
+          return;
+        }
+
+        // 1. Request cryptographic challenge
+        const challenge = await requestAuthChallenge(address);
+
+        // 2. Request user to sign challenge in wallet
+        const signer = await provider.getSigner();
+        const signature = await signer.signMessage(challenge.message);
+
+        // 3. Verify on backend & obtain JWT session
+        const verifyRes = await verifyWalletSignature(address, signature, challenge.nonce);
+        setUser(verifyRes.user);
+        setAccount(address);
+      } catch (err: any) {
+        console.warn("Wallet signature flow declined or failed:", err);
         disconnectWallet();
-        alert("Wallet is not on Arc Mainnet. Authentication cancelled.");
-        return;
+        if (err.code === 4001 || err.message?.includes('rejected')) {
+          alert("Sign-in cancelled: You must sign the message with your wallet to sign in to Taskbit.");
+        } else {
+          alert(`Sign-in failed: ${err.message || 'Could not verify wallet signature'}`);
+        }
       }
+    })();
 
-      // 1. Request cryptographic challenge
-      const challenge = await requestAuthChallenge(address);
-
-      // 2. Request user to sign challenge in wallet
-      const signer = await provider.getSigner();
-      const signature = await signer.signMessage(challenge.message);
-
-      // 3. Verify on backend & obtain JWT session
-      const verifyRes = await verifyWalletSignature(address, signature, challenge.nonce);
-      setUser(verifyRes.user);
-      setAccount(address);
-    } catch (err: any) {
-      console.warn("Wallet signature flow declined or failed:", err);
-      disconnectWallet();
-      if (err.code === 4001 || err.message?.includes('rejected')) {
-        alert("Sign-in cancelled: You must sign the message with your wallet to sign in to Taskbit.");
-      } else {
-        alert(`Sign-in failed: ${err.message || 'Could not verify wallet signature'}`);
+    authInFlightRef.current.set(addressKey, authentication);
+    void authentication.finally(() => {
+      if (authInFlightRef.current.get(addressKey) === authentication) {
+        authInFlightRef.current.delete(addressKey);
       }
-    }
+    });
+    return authentication;
   };
 
   const authenticate = async (address: string, provider?: ethers.BrowserProvider) => {
