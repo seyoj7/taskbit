@@ -1,6 +1,7 @@
 import os
 from decimal import Decimal
 from typing import Optional, Dict, Any
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound, ContractLogicError
 from dotenv import load_dotenv
@@ -11,6 +12,8 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 CONTRACT_ADDRESS_RAW = os.getenv("CONTRACT_ADDRESS")
 if not CONTRACT_ADDRESS_RAW:
     raise RuntimeError("CONTRACT_ADDRESS is not set in .env")
+# Narrow the environment value for static type checkers after validating it.
+CONTRACT_ADDRESS: str = CONTRACT_ADDRESS_RAW
 RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.mainnet.arc.io")
 
 # Complete TaskEscrow ABI
@@ -306,7 +309,7 @@ def get_contract(w3: Optional[Web3] = None):
     """Returns the TaskEscrow contract instance."""
     if w3 is None:
         w3 = get_web3_client()
-    checksum_addr = Web3.to_checksum_address(CONTRACT_ADDRESS_RAW)
+    checksum_addr = Web3.to_checksum_address(CONTRACT_ADDRESS)
     return w3.eth.contract(address=checksum_addr, abi=TASK_ESCROW_ABI)
 
 
@@ -320,11 +323,11 @@ def check_escrow_contract_health() -> Dict[str, Any]:
             "status": "error",
             "connected": False,
             "rpc_url": RPC_URL,
-            "contract_address": CONTRACT_ADDRESS_RAW,
+            "contract_address": CONTRACT_ADDRESS,
             "message": "Failed to connect to Arc RPC",
         }
 
-    checksum_addr = Web3.to_checksum_address(CONTRACT_ADDRESS_RAW)
+    checksum_addr = Web3.to_checksum_address(CONTRACT_ADDRESS)
     code = w3.eth.get_code(checksum_addr)
     block_number = w3.eth.block_number
 
@@ -395,7 +398,7 @@ def _verify_receipt(tx_hash: str) -> Dict[str, Any]:
 
     w3 = get_web3_client()
     try:
-        receipt = w3.eth.get_transaction_receipt(tx_hash)
+        receipt = w3.eth.get_transaction_receipt(HexBytes(tx_hash))
     except TransactionNotFound:
         return {"verified": False, "error": f"Transaction {tx_hash} not found on Arc."}
     except Exception as e:
@@ -407,7 +410,7 @@ def _verify_receipt(tx_hash: str) -> Dict[str, Any]:
     if receipt.get("status") != 1:
         return {"verified": False, "error": "Transaction reverted or failed on-chain."}
 
-    checksum_contract = Web3.to_checksum_address(CONTRACT_ADDRESS_RAW)
+    checksum_contract = Web3.to_checksum_address(CONTRACT_ADDRESS)
     if (
         receipt.get("to")
         and Web3.to_checksum_address(receipt["to"]) != checksum_contract

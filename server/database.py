@@ -1,13 +1,14 @@
 import os
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional
 from dotenv import load_dotenv
 from sqlalchemy import (
     create_engine,
-    Column,
     Integer,
     String,
     Text,
     Numeric,
-    Enum,
     DateTime,
     ForeignKey,
     UniqueConstraint,
@@ -15,7 +16,7 @@ from sqlalchemy import (
     text,
     inspect,
 )
-from sqlalchemy.orm import sessionmaker, DeclarativeBase, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, sessionmaker, DeclarativeBase
 
 # Load .env from project root (one level up from backend/)
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -51,18 +52,18 @@ def get_db():
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    wallet_address = Column(String(42), unique=True, nullable=False, index=True)
-    created_at = Column(DateTime, server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    wallet_address: Mapped[str] = mapped_column(String(42), unique=True, nullable=False, index=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
-    tasks_posted = relationship(
+    tasks_posted: Mapped[list["Task"]] = relationship(
         "Task", back_populates="poster", foreign_keys="Task.poster_id"
     )
-    tasks_claimed = relationship(
+    tasks_claimed: Mapped[list["Task"]] = relationship(
         "Task", back_populates="worker", foreign_keys="Task.worker_id"
     )
-    submissions = relationship(
+    submissions: Mapped[list["Submission"]] = relationship(
         "Submission", back_populates="worker", foreign_keys="Submission.worker_id"
     )
 
@@ -80,11 +81,11 @@ class User(Base):
 class AuthChallenge(Base):
     __tablename__ = "auth_challenges"
 
-    nonce = Column(String(64), primary_key=True)
-    wallet_address = Column(String(42), nullable=False, index=True)
-    message = Column(Text, nullable=False)
-    expires_at = Column(DateTime, nullable=False, index=True)
-    created_at = Column(DateTime, server_default=func.now())
+    nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
+    wallet_address: Mapped[str] = mapped_column(String(42), nullable=False, index=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, server_default=func.now())
 
 
 TASK_STATUSES = (
@@ -108,40 +109,40 @@ SUBMISSION_STATUSES = (
 class Task(Base):
     __tablename__ = "tasks"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    bounty_usdc = Column(Numeric(18, 6), nullable=False)
-    status = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    bounty_usdc: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    status: Mapped[str] = mapped_column(
         String(20),
         default="posted",
         nullable=False,
     )
-    poster_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    worker_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    proof = Column(Text, nullable=True)
-    rejection_reason = Column(
+    poster_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    worker_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    proof: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    rejection_reason: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True, comment="Reason for rejection, if any"
     )
-    tx_hash = Column(
+    tx_hash: Mapped[Optional[str]] = mapped_column(
         String(66), nullable=True, comment="On-chain payment release tx hash"
     )
-    fund_tx_hash = Column(String(66), nullable=True, comment="On-chain funding tx hash")
-    refund_tx_hash = Column(
+    fund_tx_hash: Mapped[Optional[str]] = mapped_column(String(66), nullable=True, comment="On-chain funding tx hash")
+    refund_tx_hash: Mapped[Optional[str]] = mapped_column(
         String(66), nullable=True, comment="On-chain refund tx hash"
     )
-    expires_at = Column(DateTime, nullable=False, comment="Task expiration timestamp")
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="Task expiration timestamp")
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    poster = relationship(
+    poster: Mapped["User"] = relationship(
         "User", back_populates="tasks_posted", foreign_keys=[poster_id]
     )
-    worker = relationship(
+    worker: Mapped[Optional["User"]] = relationship(
         "User", back_populates="tasks_claimed", foreign_keys=[worker_id]
     )
-    submissions = relationship(
+    submissions: Mapped[list["Submission"]] = relationship(
         "Submission",
         back_populates="task",
         foreign_keys="Submission.task_id",
@@ -157,21 +158,21 @@ class Submission(Base):
     __tablename__ = "submissions"
     __table_args__ = (UniqueConstraint("task_id", "worker_id", name="uq_task_worker"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, index=True)
-    worker_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    proof = Column(Text, nullable=False)
-    status = Column(String(20), default="pending", nullable=False)
-    rejection_reason = Column(Text, nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_id: Mapped[int] = mapped_column(Integer, ForeignKey("tasks.id"), nullable=False, index=True)
+    worker_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    proof: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    task = relationship("Task", back_populates="submissions", foreign_keys=[task_id])
-    worker = relationship(
+    task: Mapped["Task"] = relationship("Task", back_populates="submissions", foreign_keys=[task_id])
+    worker: Mapped["User"] = relationship(
         "User", back_populates="submissions", foreign_keys=[worker_id]
     )
-    review = relationship("PosterReview", back_populates="submission", uselist=False)
+    review: Mapped[Optional["PosterReview"]] = relationship("PosterReview", back_populates="submission", uselist=False)
 
 
 class PosterReview(Base):
@@ -182,31 +183,31 @@ class PosterReview(Base):
         UniqueConstraint("submission_id", name="uq_one_review_per_submission"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    submission_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    submission_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("submissions.id"), nullable=False, index=True
     )
-    reviewer_id = Column(
+    reviewer_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("users.id"),
         nullable=False,
         comment="Worker who left the review",
     )
-    poster_id = Column(
+    poster_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=False, comment="Poster being reviewed"
     )
-    vote = Column(Integer, nullable=False, comment="+1 upvote or -1 downvote")
-    comment = Column(
+    vote: Mapped[int] = mapped_column(Integer, nullable=False, comment="+1 upvote or -1 downvote")
+    comment: Mapped[str] = mapped_column(
         Text, nullable=False, comment="Required review comment (5-500 chars)"
     )
-    created_at = Column(DateTime, server_default=func.now())
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
-    submission = relationship(
+    submission: Mapped["Submission"] = relationship(
         "Submission", back_populates="review", foreign_keys=[submission_id]
     )
-    reviewer = relationship("User", foreign_keys=[reviewer_id])
-    poster = relationship("User", foreign_keys=[poster_id])
+    reviewer: Mapped["User"] = relationship("User", foreign_keys=[reviewer_id])
+    poster: Mapped["User"] = relationship("User", foreign_keys=[poster_id])
 
 
 def init_db():  # noqa: C901
