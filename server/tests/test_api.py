@@ -13,7 +13,9 @@ os.environ["TESTING"] = "1"
 
 # PostgreSQL database for isolated testing
 # You should create a 'taskbit_test' database locally for this to work out of the box
-test_db_url = os.getenv("TEST_DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/taskbit_test")
+test_db_url = os.getenv(
+    "TEST_DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/taskbit_test"
+)
 
 test_engine = create_engine(test_db_url)
 TestingSessionLocal = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
@@ -95,6 +97,7 @@ def past_expiry() -> str:
 #  Basic Health & Auth Tests
 # ═══════════════════════════════════════════════════════════════
 
+
 def test_root_and_escrow_health(client: TestClient):
     res = client.get("/")
     assert res.status_code == 200
@@ -106,7 +109,9 @@ def test_root_and_escrow_health(client: TestClient):
 
 
 def test_wallet_challenge_and_verification(client: TestClient, creator_account):
-    res = client.post("/users/auth/challenge", json={"wallet_address": creator_account.address})
+    res = client.post(
+        "/users/auth/challenge", json={"wallet_address": creator_account.address}
+    )
     assert res.status_code == 200
     challenge = res.json()
     assert "nonce" in challenge
@@ -163,9 +168,8 @@ def test_create_task_fails_without_signin(client: TestClient, creator_account):
 #  Full Lifecycle: posted → funded → claimed → submitted → paid → archived
 # ═══════════════════════════════════════════════════════════════
 
-def test_full_lifecycle_happy_path(
-    client: TestClient, creator_account, worker_account
-):
+
+def test_full_lifecycle_happy_path(client: TestClient, creator_account, worker_account):
     creator_token = get_auth_token(client, creator_account)
     worker_token = get_auth_token(client, worker_account)
 
@@ -201,7 +205,10 @@ def test_full_lifecycle_happy_path(
     # 3. Fund task → status = funded
     fund_res = client.patch(
         f"/tasks/{task_id}/fund",
-        json={"wallet_address": creator_account.address, "fund_tx_hash": "0x" + "a" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "fund_tx_hash": "0x" + "a" * 64,
+        },
         headers=creator_headers,
     )
     assert fund_res.status_code == 200
@@ -227,7 +234,10 @@ def test_full_lifecycle_happy_path(
     # 6. Worker submits non-GitHub proof → should fail
     bad_proof = client.patch(
         f"/tasks/{task_id}/submit",
-        json={"wallet_address": worker_account.address, "proof": "https://example.com/not-github"},
+        json={
+            "wallet_address": worker_account.address,
+            "proof": "https://example.com/not-github",
+        },
         headers=worker_headers,
     )
     assert bad_proof.status_code == 400
@@ -264,6 +274,7 @@ def test_full_lifecycle_happy_path(
 #  Rejection & Resubmission
 # ═══════════════════════════════════════════════════════════════
 
+
 def test_rejection_and_resubmission(
     client: TestClient, creator_account, worker_account
 ):
@@ -289,7 +300,10 @@ def test_rejection_and_resubmission(
 
     client.patch(
         f"/tasks/{task_id}/fund",
-        json={"wallet_address": creator_account.address, "fund_tx_hash": "0x" + "c" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "fund_tx_hash": "0x" + "c" * 64,
+        },
         headers=creator_headers,
     )
     client.patch(
@@ -309,7 +323,10 @@ def test_rejection_and_resubmission(
     # 1. Reject with reason → status = rejected, worker stays assigned
     reject_res = client.patch(
         f"/tasks/{task_id}/reject",
-        json={"wallet_address": creator_account.address, "reason": "Proof incomplete, needs more tests"},
+        json={
+            "wallet_address": creator_account.address,
+            "reason": "Proof incomplete, needs more tests",
+        },
         headers=creator_headers,
     )
     assert reject_res.status_code == 200
@@ -348,9 +365,8 @@ def test_rejection_and_resubmission(
 #  Refund Expired Task (funded, no submissions)
 # ═══════════════════════════════════════════════════════════════
 
-def test_refund_expired_funded_task(
-    client: TestClient, creator_account
-):
+
+def test_refund_expired_funded_task(client: TestClient, creator_account):
     creator_token = get_auth_token(client, creator_account)
     creator_headers = {"Authorization": f"Bearer {creator_token}"}
 
@@ -372,7 +388,10 @@ def test_refund_expired_funded_task(
     # Fund it
     fund_res = client.patch(
         f"/tasks/{task_id}/fund",
-        json={"wallet_address": creator_account.address, "fund_tx_hash": "0x" + "e" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "fund_tx_hash": "0x" + "e" * 64,
+        },
         headers=creator_headers,
     )
     assert fund_res.status_code == 200
@@ -381,7 +400,10 @@ def test_refund_expired_funded_task(
     # Refund expired → archived
     refund_res = client.patch(
         f"/tasks/{task_id}/refund",
-        json={"wallet_address": creator_account.address, "refund_tx_hash": "0x" + "f" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "refund_tx_hash": "0x" + "f" * 64,
+        },
         headers=creator_headers,
     )
     assert refund_res.status_code == 200
@@ -394,9 +416,8 @@ def test_refund_expired_funded_task(
 #  Guard: Cannot refund non-expired or claimed/submitted tasks
 # ═══════════════════════════════════════════════════════════════
 
-def test_cannot_refund_non_expired_task(
-    client: TestClient, creator_account
-):
+
+def test_cannot_refund_non_expired_task(client: TestClient, creator_account):
     creator_token = get_auth_token(client, creator_account)
     creator_headers = {"Authorization": f"Bearer {creator_token}"}
 
@@ -415,14 +436,20 @@ def test_cannot_refund_non_expired_task(
 
     client.patch(
         f"/tasks/{task_id}/fund",
-        json={"wallet_address": creator_account.address, "fund_tx_hash": "0x" + "1" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "fund_tx_hash": "0x" + "1" * 64,
+        },
         headers=creator_headers,
     )
 
     # Try to refund before expiry → should fail
     refund_res = client.patch(
         f"/tasks/{task_id}/refund",
-        json={"wallet_address": creator_account.address, "refund_tx_hash": "0x" + "2" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "refund_tx_hash": "0x" + "2" * 64,
+        },
         headers=creator_headers,
     )
     assert refund_res.status_code == 409
@@ -453,7 +480,10 @@ def test_cannot_refund_claimed_task(
 
     client.patch(
         f"/tasks/{task_id}/fund",
-        json={"wallet_address": creator_account.address, "fund_tx_hash": "0x" + "3" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "fund_tx_hash": "0x" + "3" * 64,
+        },
         headers=creator_headers,
     )
     client.patch(
@@ -465,7 +495,10 @@ def test_cannot_refund_claimed_task(
     # Try to refund a claimed task → should fail (wrong status)
     refund_res = client.patch(
         f"/tasks/{task_id}/refund",
-        json={"wallet_address": creator_account.address, "refund_tx_hash": "0x" + "4" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "refund_tx_hash": "0x" + "4" * 64,
+        },
         headers=creator_headers,
     )
     assert refund_res.status_code == 409
@@ -475,9 +508,8 @@ def test_cannot_refund_claimed_task(
 #  Guard: No delete endpoint
 # ═══════════════════════════════════════════════════════════════
 
-def test_delete_endpoint_removed(
-    client: TestClient, creator_account
-):
+
+def test_delete_endpoint_removed(client: TestClient, creator_account):
     creator_token = get_auth_token(client, creator_account)
     creator_headers = {"Authorization": f"Bearer {creator_token}"}
 
@@ -505,9 +537,8 @@ def test_delete_endpoint_removed(
 #  Guard: Approve requires on-chain tx_hash
 # ═══════════════════════════════════════════════════════════════
 
-def test_approve_requires_tx_hash(
-    client: TestClient, creator_account, worker_account
-):
+
+def test_approve_requires_tx_hash(client: TestClient, creator_account, worker_account):
     creator_token = get_auth_token(client, creator_account)
     worker_token = get_auth_token(client, worker_account)
 
@@ -529,7 +560,10 @@ def test_approve_requires_tx_hash(
 
     client.patch(
         f"/tasks/{task_id}/fund",
-        json={"wallet_address": creator_account.address, "fund_tx_hash": "0x" + "5" * 64},
+        json={
+            "wallet_address": creator_account.address,
+            "fund_tx_hash": "0x" + "5" * 64,
+        },
         headers=creator_headers,
     )
     client.patch(

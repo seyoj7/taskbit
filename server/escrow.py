@@ -1,5 +1,4 @@
 import os
-import json
 from decimal import Decimal
 from typing import Optional, Dict, Any
 from web3 import Web3
@@ -7,15 +6,293 @@ from web3.exceptions import TransactionNotFound, ContractLogicError
 from dotenv import load_dotenv
 
 # Load .env from project root (one level up from backend/)
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 CONTRACT_ADDRESS_RAW = os.getenv("CONTRACT_ADDRESS")
 if not CONTRACT_ADDRESS_RAW:
     raise RuntimeError("CONTRACT_ADDRESS is not set in .env")
-RPC_URL = os.getenv("ARC_RPC_URL", os.getenv("ARC_TESTNET_RPC_URL", "https://rpc.mainnet.arc.io"))
+RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.mainnet.arc.io")
 
 # Complete TaskEscrow ABI
-TASK_ESCROW_ABI = [{"inputs": [{"internalType": "address", "name": "_usdc", "type": "address"}], "stateMutability": "nonpayable", "type": "constructor"}, {"inputs": [], "name": "AlreadyCompleted", "type": "error"}, {"inputs": [], "name": "AlreadyFunded", "type": "error"}, {"inputs": [], "name": "InvalidBounty", "type": "error"}, {"inputs": [], "name": "InvalidWorker", "type": "error"}, {"inputs": [], "name": "NotFunded", "type": "error"}, {"inputs": [], "name": "OnlyCreator", "type": "error"}, {"inputs": [], "name": "TaskAlreadyExists", "type": "error"}, {"inputs": [], "name": "TaskExpired", "type": "error"}, {"inputs": [], "name": "TaskNotExpired", "type": "error"}, {"inputs": [], "name": "TaskNotFound", "type": "error"}, {"inputs": [], "name": "TransferFailed", "type": "error"}, {"inputs": [], "name": "WorkAlreadySubmitted", "type": "error"}, {"inputs": [], "name": "WorkerNotAssigned", "type": "error"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "PaymentReleased", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "address", "name": "worker", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "bounty", "type": "uint256"}, {"indexed": False, "internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "TaskCreated", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "TaskFunded", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "creator", "type": "address"}, {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "TaskRefunded", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}], "name": "WorkSubmitted", "type": "event"}, {"anonymous": False, "inputs": [{"indexed": True, "internalType": "uint256", "name": "taskId", "type": "uint256"}, {"indexed": True, "internalType": "address", "name": "worker", "type": "address"}], "name": "WorkerAssigned", "type": "event"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "address", "name": "worker", "type": "address"}], "name": "assignWorker", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "createTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}], "name": "createTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "getTask", "outputs": [{"components": [{"internalType": "address", "name": "creator", "type": "address"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}, {"internalType": "bool", "name": "funded", "type": "bool"}, {"internalType": "bool", "name": "completed", "type": "bool"}, {"internalType": "bool", "name": "workSubmitted", "type": "bool"}], "internalType": "struct TaskEscrow.Task", "name": "", "type": "tuple"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "owner", "outputs": [{"internalType": "address", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "refundTask", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "releasePayment", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}], "name": "submitWork", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "name": "tasks", "outputs": [{"internalType": "address", "name": "creator", "type": "address"}, {"internalType": "address", "name": "worker", "type": "address"}, {"internalType": "uint256", "name": "bounty", "type": "uint256"}, {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"}, {"internalType": "bool", "name": "funded", "type": "bool"}, {"internalType": "bool", "name": "completed", "type": "bool"}, {"internalType": "bool", "name": "workSubmitted", "type": "bool"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "usdc", "outputs": [{"internalType": "contract IERC20", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}]
+TASK_ESCROW_ABI = [
+    {
+        "inputs": [{"internalType": "address", "name": "_usdc", "type": "address"}],
+        "stateMutability": "nonpayable",
+        "type": "constructor",
+    },
+    {"inputs": [], "name": "AlreadyCompleted", "type": "error"},
+    {"inputs": [], "name": "AlreadyFunded", "type": "error"},
+    {"inputs": [], "name": "InvalidBounty", "type": "error"},
+    {"inputs": [], "name": "InvalidWorker", "type": "error"},
+    {"inputs": [], "name": "NotFunded", "type": "error"},
+    {"inputs": [], "name": "OnlyCreator", "type": "error"},
+    {"inputs": [], "name": "TaskAlreadyExists", "type": "error"},
+    {"inputs": [], "name": "TaskExpired", "type": "error"},
+    {"inputs": [], "name": "TaskNotExpired", "type": "error"},
+    {"inputs": [], "name": "TaskNotFound", "type": "error"},
+    {"inputs": [], "name": "TransferFailed", "type": "error"},
+    {"inputs": [], "name": "WorkAlreadySubmitted", "type": "error"},
+    {"inputs": [], "name": "WorkerNotAssigned", "type": "error"},
+    {
+        "anonymous": False,
+        "inputs": [
+            {
+                "indexed": True,
+                "internalType": "uint256",
+                "name": "taskId",
+                "type": "uint256",
+            },
+            {
+                "indexed": True,
+                "internalType": "address",
+                "name": "worker",
+                "type": "address",
+            },
+            {
+                "indexed": False,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256",
+            },
+        ],
+        "name": "PaymentReleased",
+        "type": "event",
+    },
+    {
+        "anonymous": False,
+        "inputs": [
+            {
+                "indexed": True,
+                "internalType": "uint256",
+                "name": "taskId",
+                "type": "uint256",
+            },
+            {
+                "indexed": True,
+                "internalType": "address",
+                "name": "creator",
+                "type": "address",
+            },
+            {
+                "indexed": False,
+                "internalType": "address",
+                "name": "worker",
+                "type": "address",
+            },
+            {
+                "indexed": False,
+                "internalType": "uint256",
+                "name": "bounty",
+                "type": "uint256",
+            },
+            {
+                "indexed": False,
+                "internalType": "uint256",
+                "name": "expiryTimestamp",
+                "type": "uint256",
+            },
+        ],
+        "name": "TaskCreated",
+        "type": "event",
+    },
+    {
+        "anonymous": False,
+        "inputs": [
+            {
+                "indexed": True,
+                "internalType": "uint256",
+                "name": "taskId",
+                "type": "uint256",
+            },
+            {
+                "indexed": True,
+                "internalType": "address",
+                "name": "creator",
+                "type": "address",
+            },
+            {
+                "indexed": False,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256",
+            },
+        ],
+        "name": "TaskFunded",
+        "type": "event",
+    },
+    {
+        "anonymous": False,
+        "inputs": [
+            {
+                "indexed": True,
+                "internalType": "uint256",
+                "name": "taskId",
+                "type": "uint256",
+            },
+            {
+                "indexed": True,
+                "internalType": "address",
+                "name": "creator",
+                "type": "address",
+            },
+            {
+                "indexed": False,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256",
+            },
+        ],
+        "name": "TaskRefunded",
+        "type": "event",
+    },
+    {
+        "anonymous": False,
+        "inputs": [
+            {
+                "indexed": True,
+                "internalType": "uint256",
+                "name": "taskId",
+                "type": "uint256",
+            },
+            {
+                "indexed": True,
+                "internalType": "address",
+                "name": "worker",
+                "type": "address",
+            },
+        ],
+        "name": "WorkSubmitted",
+        "type": "event",
+    },
+    {
+        "anonymous": False,
+        "inputs": [
+            {
+                "indexed": True,
+                "internalType": "uint256",
+                "name": "taskId",
+                "type": "uint256",
+            },
+            {
+                "indexed": True,
+                "internalType": "address",
+                "name": "worker",
+                "type": "address",
+            },
+        ],
+        "name": "WorkerAssigned",
+        "type": "event",
+    },
+    {
+        "inputs": [
+            {"internalType": "uint256", "name": "taskId", "type": "uint256"},
+            {"internalType": "address", "name": "worker", "type": "address"},
+        ],
+        "name": "assignWorker",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [
+            {"internalType": "uint256", "name": "taskId", "type": "uint256"},
+            {"internalType": "address", "name": "worker", "type": "address"},
+            {"internalType": "uint256", "name": "bounty", "type": "uint256"},
+            {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"},
+        ],
+        "name": "createTask",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [
+            {"internalType": "uint256", "name": "taskId", "type": "uint256"},
+            {"internalType": "uint256", "name": "bounty", "type": "uint256"},
+            {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"},
+        ],
+        "name": "createTask",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
+        "name": "getTask",
+        "outputs": [
+            {
+                "components": [
+                    {"internalType": "address", "name": "creator", "type": "address"},
+                    {"internalType": "address", "name": "worker", "type": "address"},
+                    {"internalType": "uint256", "name": "bounty", "type": "uint256"},
+                    {
+                        "internalType": "uint256",
+                        "name": "expiryTimestamp",
+                        "type": "uint256",
+                    },
+                    {"internalType": "bool", "name": "funded", "type": "bool"},
+                    {"internalType": "bool", "name": "completed", "type": "bool"},
+                    {"internalType": "bool", "name": "workSubmitted", "type": "bool"},
+                ],
+                "internalType": "struct TaskEscrow.Task",
+                "name": "",
+                "type": "tuple",
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "owner",
+        "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
+        "name": "refundTask",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
+        "name": "releasePayment",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "uint256", "name": "taskId", "type": "uint256"}],
+        "name": "submitWork",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "name": "tasks",
+        "outputs": [
+            {"internalType": "address", "name": "creator", "type": "address"},
+            {"internalType": "address", "name": "worker", "type": "address"},
+            {"internalType": "uint256", "name": "bounty", "type": "uint256"},
+            {"internalType": "uint256", "name": "expiryTimestamp", "type": "uint256"},
+            {"internalType": "bool", "name": "funded", "type": "bool"},
+            {"internalType": "bool", "name": "completed", "type": "bool"},
+            {"internalType": "bool", "name": "workSubmitted", "type": "bool"},
+        ],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "usdc",
+        "outputs": [{"internalType": "contract IERC20", "name": "", "type": "address"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+]
 
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -37,14 +314,14 @@ def check_escrow_contract_health() -> Dict[str, Any]:
     """Inspects RPC connection and confirms contract code exists at CONTRACT_ADDRESS."""
     w3 = get_web3_client()
     is_connected = w3.is_connected()
-    
+
     if not is_connected:
         return {
             "status": "error",
             "connected": False,
             "rpc_url": RPC_URL,
             "contract_address": CONTRACT_ADDRESS_RAW,
-            "message": "Failed to connect to Arc RPC"
+            "message": "Failed to connect to Arc RPC",
         }
 
     checksum_addr = Web3.to_checksum_address(CONTRACT_ADDRESS_RAW)
@@ -71,11 +348,13 @@ def get_onchain_escrow_task(task_id: int) -> Dict[str, Any]:
     """
     w3 = get_web3_client()
     contract = get_contract(w3)
-    
+
     try:
         task_data = contract.functions.getTask(task_id).call()
-        creator, worker, bounty, expiryTimestamp, funded, completed, workSubmitted = task_data
-        
+        creator, worker, bounty, expiryTimestamp, funded, completed, workSubmitted = (
+            task_data
+        )
+
         # If creator is zero address, task doesn't exist on-chain
         if creator.lower() == ZERO_ADDRESS.lower():
             return {"exists": False, "task_id": task_id}
@@ -99,11 +378,7 @@ def get_onchain_escrow_task(task_id: int) -> Dict[str, Any]:
         # Reverted with TaskNotFound()
         return {"exists": False, "task_id": task_id}
     except Exception as e:
-        return {
-            "exists": False,
-            "task_id": task_id,
-            "error": str(e)
-        }
+        return {"exists": False, "task_id": task_id, "error": str(e)}
 
 
 def _verify_receipt(tx_hash: str) -> Dict[str, Any]:
@@ -115,34 +390,31 @@ def _verify_receipt(tx_hash: str) -> Dict[str, Any]:
     if not (tx_hash.startswith("0x") and len(tx_hash) == 66):
         return {
             "verified": False,
-            "error": "Invalid transaction hash format. Must be a 66-character 0x hex string."
+            "error": "Invalid transaction hash format. Must be a 66-character 0x hex string.",
         }
 
     w3 = get_web3_client()
     try:
         receipt = w3.eth.get_transaction_receipt(tx_hash)
     except TransactionNotFound:
-        return {
-            "verified": False,
-            "error": f"Transaction {tx_hash} not found on Arc."
-        }
+        return {"verified": False, "error": f"Transaction {tx_hash} not found on Arc."}
     except Exception as e:
         return {
             "verified": False,
-            "error": f"Failed to fetch transaction receipt: {str(e)}"
+            "error": f"Failed to fetch transaction receipt: {str(e)}",
         }
 
     if receipt.get("status") != 1:
-        return {
-            "verified": False,
-            "error": "Transaction reverted or failed on-chain."
-        }
+        return {"verified": False, "error": "Transaction reverted or failed on-chain."}
 
     checksum_contract = Web3.to_checksum_address(CONTRACT_ADDRESS_RAW)
-    if receipt.get("to") and Web3.to_checksum_address(receipt["to"]) != checksum_contract:
+    if (
+        receipt.get("to")
+        and Web3.to_checksum_address(receipt["to"]) != checksum_contract
+    ):
         return {
             "verified": False,
-            "error": f"Transaction was sent to {receipt.get('to')}, not the TaskEscrow contract ({checksum_contract})."
+            "error": f"Transaction was sent to {receipt.get('to')}, not the TaskEscrow contract ({checksum_contract}).",
         }
 
     return {"verified": True, "is_mock": False, "receipt": receipt, "w3": w3}
@@ -152,7 +424,7 @@ def verify_task_funded_tx(
     tx_hash: str,
     task_id: int,
     expected_amount_usdc: Optional[float] = None,
-    expected_creator: Optional[str] = None
+    expected_creator: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Verifies that an on-chain transaction represents a valid fundTask(taskId)."""
     check = _verify_receipt(tx_hash)
@@ -172,7 +444,7 @@ def verify_task_funded_tx(
     if not matched:
         return {
             "verified": False,
-            "error": f"No TaskFunded event found for task #{task_id} in this transaction."
+            "error": f"No TaskFunded event found for task #{task_id} in this transaction.",
         }
 
     if expected_creator:
@@ -181,14 +453,17 @@ def verify_task_funded_tx(
         if creator_event != creator_expected:
             return {
                 "verified": False,
-                "error": f"Task funded by {creator_event}, expected {creator_expected}."
+                "error": f"Task funded by {creator_event}, expected {creator_expected}.",
             }
 
     amount_usdc = float(Decimal(matched["amount"]) / Decimal(10**6))
-    if expected_amount_usdc is not None and abs(amount_usdc - float(expected_amount_usdc)) > 0.0001:
+    if (
+        expected_amount_usdc is not None
+        and abs(amount_usdc - float(expected_amount_usdc)) > 0.0001
+    ):
         return {
             "verified": False,
-            "error": f"Funded amount {amount_usdc} USDC does not match expected {expected_amount_usdc} USDC."
+            "error": f"Funded amount {amount_usdc} USDC does not match expected {expected_amount_usdc} USDC.",
         }
 
     return {
@@ -203,9 +478,7 @@ def verify_task_funded_tx(
 
 
 def verify_worker_assigned_tx(
-    tx_hash: str,
-    task_id: int,
-    expected_worker: Optional[str] = None
+    tx_hash: str, task_id: int, expected_worker: Optional[str] = None
 ) -> Dict[str, Any]:
     """Verifies that an on-chain transaction represents a valid assignWorker(taskId, worker)."""
     check = _verify_receipt(tx_hash)
@@ -225,7 +498,7 @@ def verify_worker_assigned_tx(
     if not matched:
         return {
             "verified": False,
-            "error": f"No WorkerAssigned event found for task #{task_id} in this transaction."
+            "error": f"No WorkerAssigned event found for task #{task_id} in this transaction.",
         }
 
     if expected_worker:
@@ -234,7 +507,7 @@ def verify_worker_assigned_tx(
         if worker_event != worker_expected:
             return {
                 "verified": False,
-                "error": f"Worker assigned is {worker_event}, expected {worker_expected}."
+                "error": f"Worker assigned is {worker_event}, expected {worker_expected}.",
             }
 
     return {
@@ -248,9 +521,7 @@ def verify_worker_assigned_tx(
 
 
 def verify_task_refunded_tx(
-    tx_hash: str,
-    task_id: int,
-    expected_creator: Optional[str] = None
+    tx_hash: str, task_id: int, expected_creator: Optional[str] = None
 ) -> Dict[str, Any]:
     """Verifies that an on-chain transaction represents a valid refundTask(taskId)."""
     check = _verify_receipt(tx_hash)
@@ -270,7 +541,7 @@ def verify_task_refunded_tx(
     if not matched:
         return {
             "verified": False,
-            "error": f"No TaskRefunded event found for task #{task_id} in this transaction."
+            "error": f"No TaskRefunded event found for task #{task_id} in this transaction.",
         }
 
     if expected_creator:
@@ -279,7 +550,7 @@ def verify_task_refunded_tx(
         if creator_event != creator_expected:
             return {
                 "verified": False,
-                "error": f"Task refunded to {creator_event}, expected {creator_expected}."
+                "error": f"Task refunded to {creator_event}, expected {creator_expected}.",
             }
 
     amount_usdc = float(Decimal(matched["amount"]) / Decimal(10**6))
@@ -295,9 +566,7 @@ def verify_task_refunded_tx(
 
 
 def verify_payment_release_tx(
-    tx_hash: str,
-    task_id: int,
-    expected_worker: Optional[str] = None
+    tx_hash: str, task_id: int, expected_worker: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Verifies that an on-chain transaction succeeded and represents a valid
@@ -320,7 +589,7 @@ def verify_payment_release_tx(
     if not matched:
         return {
             "verified": False,
-            "error": f"No PaymentReleased event found for task #{task_id} in this transaction."
+            "error": f"No PaymentReleased event found for task #{task_id} in this transaction.",
         }
 
     if expected_worker:
@@ -329,7 +598,7 @@ def verify_payment_release_tx(
         if event_worker != expected_worker_cs:
             return {
                 "verified": False,
-                "error": f"Payment released to {event_worker}, expected {expected_worker_cs}."
+                "error": f"Payment released to {event_worker}, expected {expected_worker_cs}.",
             }
 
     amount_usdc = float(Decimal(matched["amount"]) / Decimal(10**6))
@@ -340,5 +609,5 @@ def verify_payment_release_tx(
         "block_number": receipt["blockNumber"],
         "task_id": task_id,
         "worker": matched["worker"],
-        "amount_usdc": amount_usdc
+        "amount_usdc": amount_usdc,
     }

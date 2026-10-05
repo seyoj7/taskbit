@@ -5,14 +5,42 @@ import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import TaskCard from '../components/TaskCard';
-import { fetchTasks, Task } from '../components/api';
+import { fetchTasks, type Task } from '../components/api';
 import styles from './dashboard.module.css';
+
 const STATUS_TABS = [
   { label: 'All Tasks', value: 'all' },
   { label: 'Open', value: 'funded' },
   { label: 'Approved', value: 'approved' },
   { label: 'Refunded', value: 'failed' },
 ] as const;
+
+function getTaskCardStatus(task: Task): string {
+  if (task.status === 'refunded' || (task.status === 'archived' && task.refund_tx_hash)) {
+    return 'refunded';
+  }
+
+  if (
+    (task.status === 'funded' || task.status === 'rejected') &&
+    new Date(task.expires_at) < new Date()
+  ) {
+    return 'expired';
+  }
+
+  if (task.status === 'funded' || task.status === 'rejected') return 'funded';
+  if (task.status === 'posted') return 'posted';
+  if (task.status === 'submitted') return 'submitted';
+
+  if (
+    task.status === 'approved' ||
+    task.status === 'paid' ||
+    (task.status === 'archived' && task.tx_hash)
+  ) {
+    return 'approved';
+  }
+
+  return 'archived';
+}
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -182,21 +210,7 @@ export default function Dashboard() {
                   title={task.title}
                   description={task.description || 'No description provided.'}
                   bounty={Number(task.bounty_usdc)}
-                  status={
-                    task.status === 'refunded' || (task.status === 'archived' && task.refund_tx_hash)
-                      ? 'refunded'
-                      : ((task.status === 'funded' || task.status === 'rejected') && new Date(task.expires_at) < new Date())
-                      ? 'expired'
-                      : (task.status === 'funded' || task.status === 'rejected')
-                      ? 'funded'
-                      : task.status === 'posted'
-                      ? 'posted'
-                      : task.status === 'submitted'
-                      ? 'submitted'
-                      : task.status === 'approved' || task.status === 'paid' || (task.status === 'archived' && task.tx_hash)
-                      ? 'approved'
-                      : 'archived'
-                  }
+                  status={getTaskCardStatus(task)}
                   poster_wallet_address={task.poster_wallet_address}
                 />
               ))}

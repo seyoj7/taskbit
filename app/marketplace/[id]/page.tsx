@@ -141,6 +141,10 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       const taskId = parseInt(unwrappedParams.id);
       const fetchedTask = await fetchTaskById(taskId);
       setTask(fetchedTask);
+      // Render task details as soon as the API responds. In particular, don't
+      // keep the whole page behind the loading screen while the Arc RPC call
+      // below resolves; it already runs alongside the other detail requests.
+      setLoading(false);
 
       // Fetch all dependent data concurrently
       await Promise.all([

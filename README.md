@@ -319,7 +319,7 @@ Configure your variables:
 # Arc Blockchain
 ARC_RPC_URL=https://rpc.mainnet.arc.io
 USDC_ADDRESS=0x3600000000000000000000000000000000000000
-CONTRACT_ADDRESS=<deployed-contract-address>
+CONTRACT_ADDRESS=0x1A02aF9cA91bAfAFCC0987cf9e89d3c210766915
 
 # Deployer Private Key (for Hardhat CLI deployment only — never commit!)
 PRIVATE_KEY=
@@ -331,8 +331,10 @@ JWT_SECRET=<generate-with: python -c "import secrets; print(secrets.token_hex(32
 GITHUB_TOKEN=
 
 # Database (PostgreSQL, MySQL, or SQLite)
-DATABASE_URL=postgresql://user:password@host:5432/dbname
+DATABASE_URL=postgresql://user:password@host:5432/taskbit
 ```
+
+Set these variables in Vercel for each deployment environment. `CONTRACT_ADDRESS` is also exposed to the frontend by `next.config.ts`; do not add a separate `NEXT_PUBLIC_CONTRACT_ADDRESS` variable. Use a PostgreSQL service with SSL settings included in its connection URL when required by the provider.
 
 ### 3. Installation & Local Development
 
@@ -348,6 +350,16 @@ cd contract && npm install && cd ..
 # Install Python backend dependencies
 cd server && pip install -r requirements.txt && cd ..
 ```
+
+Before the first production deployment, initialize the PostgreSQL schema once using the production `DATABASE_URL`:
+
+```bash
+cd server
+python -c "from database import init_db; init_db()"
+cd ..
+```
+
+The API does not create or migrate tables automatically when it starts.
 
 Start both the frontend and backend concurrently:
 

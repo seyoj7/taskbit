@@ -1,11 +1,25 @@
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, Integer, String, Text, Numeric, Enum, DateTime, ForeignKey, UniqueConstraint, func, text, inspect
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Text,
+    Numeric,
+    Enum,
+    DateTime,
+    ForeignKey,
+    UniqueConstraint,
+    func,
+    text,
+    inspect,
+)
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, relationship
 
 # Load .env from project root (one level up from backend/)
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-load_dotenv(os.path.join(ROOT_DIR, '.env'))
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -42,9 +56,15 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships
-    tasks_posted = relationship("Task", back_populates="poster", foreign_keys="Task.poster_id")
-    tasks_claimed = relationship("Task", back_populates="worker", foreign_keys="Task.worker_id")
-    submissions = relationship("Submission", back_populates="worker", foreign_keys="Submission.worker_id")
+    tasks_posted = relationship(
+        "Task", back_populates="poster", foreign_keys="Task.poster_id"
+    )
+    tasks_claimed = relationship(
+        "Task", back_populates="worker", foreign_keys="Task.worker_id"
+    )
+    submissions = relationship(
+        "Submission", back_populates="worker", foreign_keys="Submission.worker_id"
+    )
 
 
 # ── Task Lifecycle (multi-worker submissions) ────────────────
@@ -57,20 +77,20 @@ class User(Base):
 #
 
 TASK_STATUSES = (
-    "posted",     # Task created in DB, not yet funded on-chain
-    "funded",     # Escrow funded on-chain, open for workers to submit
+    "posted",  # Task created in DB, not yet funded on-chain
+    "funded",  # Escrow funded on-chain, open for workers to submit
     "submitted",  # At least one worker has submitted proof
-    "approved",   # Poster approved a submission, pending on-chain payment
-    "rejected",   # All submissions rejected; workers can still submit if not expired
-    "paid",       # On-chain payment verified, USDC released to worker
-    "refunded",   # On-chain refund verified, USDC returned to poster
-    "archived",   # Terminal state after payment or refund
+    "approved",  # Poster approved a submission, pending on-chain payment
+    "rejected",  # All submissions rejected; workers can still submit if not expired
+    "paid",  # On-chain payment verified, USDC released to worker
+    "refunded",  # On-chain refund verified, USDC returned to poster
+    "archived",  # Terminal state after payment or refund
 )
 
 SUBMISSION_STATUSES = (
-    "pending",    # Awaiting poster review
-    "selected",   # Poster selected this submission as the winner
-    "rejected",   # Poster rejected this submission
+    "pending",  # Awaiting poster review
+    "selected",  # Poster selected this submission as the winner
+    "rejected",  # Poster rejected this submission
 )
 
 
@@ -89,18 +109,33 @@ class Task(Base):
     poster_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     worker_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     proof = Column(Text, nullable=True)
-    rejection_reason = Column(Text, nullable=True, comment="Reason for rejection, if any")
-    tx_hash = Column(String(66), nullable=True, comment="On-chain payment release tx hash")
+    rejection_reason = Column(
+        Text, nullable=True, comment="Reason for rejection, if any"
+    )
+    tx_hash = Column(
+        String(66), nullable=True, comment="On-chain payment release tx hash"
+    )
     fund_tx_hash = Column(String(66), nullable=True, comment="On-chain funding tx hash")
-    refund_tx_hash = Column(String(66), nullable=True, comment="On-chain refund tx hash")
+    refund_tx_hash = Column(
+        String(66), nullable=True, comment="On-chain refund tx hash"
+    )
     expires_at = Column(DateTime, nullable=False, comment="Task expiration timestamp")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    poster = relationship("User", back_populates="tasks_posted", foreign_keys=[poster_id])
-    worker = relationship("User", back_populates="tasks_claimed", foreign_keys=[worker_id])
-    submissions = relationship("Submission", back_populates="task", foreign_keys="Submission.task_id", order_by="Submission.created_at.desc()")
+    poster = relationship(
+        "User", back_populates="tasks_posted", foreign_keys=[poster_id]
+    )
+    worker = relationship(
+        "User", back_populates="tasks_claimed", foreign_keys=[worker_id]
+    )
+    submissions = relationship(
+        "Submission",
+        back_populates="task",
+        foreign_keys="Submission.task_id",
+        order_by="Submission.created_at.desc()",
+    )
 
     @property
     def poster_wallet_address(self) -> str:
@@ -109,9 +144,7 @@ class Task(Base):
 
 class Submission(Base):
     __tablename__ = "submissions"
-    __table_args__ = (
-        UniqueConstraint("task_id", "worker_id", name="uq_task_worker"),
-    )
+    __table_args__ = (UniqueConstraint("task_id", "worker_id", name="uq_task_worker"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, index=True)
@@ -124,27 +157,43 @@ class Submission(Base):
 
     # Relationships
     task = relationship("Task", back_populates="submissions", foreign_keys=[task_id])
-    worker = relationship("User", back_populates="submissions", foreign_keys=[worker_id])
+    worker = relationship(
+        "User", back_populates="submissions", foreign_keys=[worker_id]
+    )
     review = relationship("PosterReview", back_populates="submission", uselist=False)
 
 
 class PosterReview(Base):
     """Worker's review of a poster after their submission was rejected."""
+
     __tablename__ = "poster_reviews"
     __table_args__ = (
         UniqueConstraint("submission_id", name="uq_one_review_per_submission"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False, index=True)
-    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="Worker who left the review")
-    poster_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="Poster being reviewed")
+    submission_id = Column(
+        Integer, ForeignKey("submissions.id"), nullable=False, index=True
+    )
+    reviewer_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        comment="Worker who left the review",
+    )
+    poster_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, comment="Poster being reviewed"
+    )
     vote = Column(Integer, nullable=False, comment="+1 upvote or -1 downvote")
-    comment = Column(Text, nullable=False, comment="Required review comment (5-500 chars)")
+    comment = Column(
+        Text, nullable=False, comment="Required review comment (5-500 chars)"
+    )
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships
-    submission = relationship("Submission", back_populates="review", foreign_keys=[submission_id])
+    submission = relationship(
+        "Submission", back_populates="review", foreign_keys=[submission_id]
+    )
     reviewer = relationship("User", foreign_keys=[reviewer_id])
     poster = relationship("User", foreign_keys=[poster_id])
 

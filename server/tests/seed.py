@@ -1,24 +1,22 @@
 import datetime
 from database import SessionLocal, User, Task, init_db
 
+
 def seed_data():
     init_db()
     db = SessionLocal()
-    
+
     # Create some dummy users (posters)
-    wallets = [
-        "0x" + "1" * 40,
-        "0x" + "2" * 40
-    ]
-    
+    wallets = ["0x" + "1" * 40, "0x" + "2" * 40]
+
     for w in wallets:
         if not db.query(User).filter_by(wallet_address=w).first():
             db.add(User(wallet_address=w))
     db.commit()
-    
+
     u1 = db.query(User).filter_by(wallet_address=wallets[0]).first()
     u2 = db.query(User).filter_by(wallet_address=wallets[1]).first()
-    
+
     # 5 different tasks for the marketplace
     tasks = [
         Task(
@@ -27,7 +25,7 @@ def seed_data():
             bounty_usdc=25.50,
             status="posted",
             poster_id=u1.id,
-            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7)
+            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7),
         ),
         Task(
             title="Write unit tests for the Escrow contract",
@@ -35,7 +33,7 @@ def seed_data():
             bounty_usdc=100.00,
             status="posted",
             poster_id=u2.id,
-            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=14)
+            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=14),
         ),
         Task(
             title="Implement Dark Mode toggle",
@@ -43,7 +41,7 @@ def seed_data():
             bounty_usdc=40.00,
             status="posted",
             poster_id=u1.id,
-            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=5)
+            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=5),
         ),
         Task(
             title="Create a modern Logo for Taskbit",
@@ -51,7 +49,7 @@ def seed_data():
             bounty_usdc=75.00,
             status="posted",
             poster_id=u2.id,
-            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=30)
+            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=30),
         ),
         Task(
             title="Integrate WalletConnect v2",
@@ -59,14 +57,15 @@ def seed_data():
             bounty_usdc=150.00,
             status="posted",
             poster_id=u1.id,
-            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=10)
-        )
+            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=10),
+        ),
     ]
-    
+
     db.add_all(tasks)
     db.commit()
     print("Successfully seeded 5 tasks into the marketplace!")
     db.close()
+
 
 if __name__ == "__main__":
     seed_data()
