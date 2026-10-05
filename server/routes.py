@@ -1,13 +1,12 @@
 import os
 import re
 import secrets
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import jwt
 from eth_account.messages import encode_defunct
@@ -15,7 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from database import PosterReview, Submission, Task, User, get_db
+from database import AuthChallenge, PosterReview, Submission, Task, User, get_db
 from escrow import (
     check_escrow_contract_health,
     get_onchain_escrow_task,
@@ -59,10 +58,6 @@ if not _jwt_secret_raw and os.getenv("TESTING") != "1":
 JWT_SECRET = _jwt_secret_raw or "test-only-insecure-jwt-secret"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
-
-# Challenge nonce store with TTL: { nonce: { wallet_address, message, expires_at } }
-CHALLENGES: Dict[str, Dict[str, Any]] = {}
-
 
 #  GitHub Proof Verification
 # ═══════════════════════════════════════════════════════════════
@@ -325,13 +320,15 @@ def escrow_health():
 
 
 @router.post("/users/auth/challenge", response_model=ChallengeResponse)
-def request_auth_challenge(payload: ChallengeRequest):
+def request_auth_challenge(
+    payload: ChallengeRequest,
+    db: Session = Depends(get_db),
+):
 
-    # Clean up expired challenges
-    now = time.time()
-    expired = [k for k, v in CHALLENGES.items() if v["expires_at"] < now]
-    for k in expired:
-        CHALLENGES.pop(k, None)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.query(AuthChallenge).filter(AuthChallenge.expires_at <= now).delete(
+        synchronize_session=False
+    )
 
     nonce = secrets.token_hex(16)
     timestamp = datetime.now(timezone.utc).isoformat()
@@ -344,11 +341,15 @@ def request_auth_challenge(payload: ChallengeRequest):
         f"Issued At: {timestamp}"
     )
 
-    CHALLENGES[nonce] = {
-        "wallet_address": payload.wallet_address.lower(),
-        "message": message,
-        "expires_at": now + 300,  # 5 minutes TTL
-    }
+    db.add(
+        AuthChallenge(
+            nonce=nonce,
+            wallet_address=payload.wallet_address.lower(),
+            message=message,
+            expires_at=now + timedelta(minutes=5),
+        )
+    )
+    db.commit()
 
     return ChallengeResponse(
         nonce=nonce,
@@ -360,21 +361,25 @@ def request_auth_challenge(payload: ChallengeRequest):
 @router.post("/users/auth/verify", response_model=TokenResponse)
 def verify_wallet_signature(payload: VerifyRequest, db: Session = Depends(get_db)):
 
-    challenge = CHALLENGES.get(payload.nonce)
+    challenge = (
+        db.query(AuthChallenge).filter(AuthChallenge.nonce == payload.nonce).first()
+    )
     if not challenge:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired authentication challenge nonce.",
         )
 
-    if time.time() > challenge["expires_at"]:
-        CHALLENGES.pop(payload.nonce, None)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if now > challenge.expires_at:
+        db.delete(challenge)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Authentication challenge expired. Request a new challenge.",
         )
 
-    if challenge["wallet_address"] != payload.wallet_address.lower():
+    if challenge.wallet_address != payload.wallet_address.lower():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Wallet address does not match challenge recipient.",
@@ -382,7 +387,7 @@ def verify_wallet_signature(payload: VerifyRequest, db: Session = Depends(get_db
 
     # Cryptographically verify the EIP-191 signature
     w3 = get_web3_client()
-    encoded_message = encode_defunct(text=challenge["message"])
+    encoded_message = encode_defunct(text=challenge.message)
     try:
         recovered_address = w3.eth.account.recover_message(
             encoded_message, signature=payload.signature
@@ -399,8 +404,23 @@ def verify_wallet_signature(payload: VerifyRequest, db: Session = Depends(get_db
             detail=f"Signature recovered signer ({recovered_address}) does not match wallet {payload.wallet_address}.",
         )
 
-    # Consume challenge
-    CHALLENGES.pop(payload.nonce, None)
+    # Consume the nonce atomically so parallel requests or separate instances
+    # cannot reuse a valid challenge.
+    consumed = (
+        db.query(AuthChallenge)
+        .filter(
+            AuthChallenge.nonce == payload.nonce,
+            AuthChallenge.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        .delete(synchronize_session=False)
+    )
+    if consumed != 1:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired authentication challenge nonce.",
+        )
+    db.commit()
 
     # Get or create user
     user = (

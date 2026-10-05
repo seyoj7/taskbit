@@ -76,6 +76,17 @@ class User(Base):
 #   FUNDED → (no submissions + expired) → REFUNDED → ARCHIVED
 #
 
+
+class AuthChallenge(Base):
+    __tablename__ = "auth_challenges"
+
+    nonce = Column(String(64), primary_key=True)
+    wallet_address = Column(String(42), nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 TASK_STATUSES = (
     "posted",  # Task created in DB, not yet funded on-chain
     "funded",  # Escrow funded on-chain, open for workers to submit

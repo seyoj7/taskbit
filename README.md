@@ -351,7 +351,7 @@ cd contract && npm install && cd ..
 cd server && pip install -r requirements.txt && cd ..
 ```
 
-Before the first production deployment, initialize the PostgreSQL schema once using the production `DATABASE_URL`:
+Before using the production API after this schema change, initialize the PostgreSQL schema using the production `DATABASE_URL`. Repeat this step after future schema changes:
 
 ```bash
 cd server
@@ -359,7 +359,7 @@ python -c "from database import init_db; init_db()"
 cd ..
 ```
 
-The API does not create or migrate tables automatically when it starts.
+The API does not create or migrate tables automatically when it starts. The auth challenge records are stored in PostgreSQL so sign-in works across separate Vercel function instances.
 
 Start both the frontend and backend concurrently:
 
