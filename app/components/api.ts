@@ -142,7 +142,17 @@ export async function requestAuthChallenge(wallet_address: string): Promise<{ no
     body: JSON.stringify({ wallet_address }),
   });
   if (!res.ok) {
-    throw new Error('Failed to request authentication challenge');
+    const responseText = await res.text();
+    let detail = responseText;
+    try {
+      const responseBody = JSON.parse(responseText);
+      detail = responseBody.detail || responseBody.message || responseText;
+    } catch {
+      // Keep a non-JSON response (such as a deployment error page) visible.
+    }
+    throw new Error(
+      `Failed to request authentication challenge (${res.status})${detail ? `: ${detail}` : ''}`
+    );
   }
   return res.json();
 }
