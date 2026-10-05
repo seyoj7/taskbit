@@ -142,63 +142,57 @@ export default function TaskDetail({ params }: { params: Promise<{ id: string }>
       const fetchedTask = await fetchTaskById(taskId);
       setTask(fetchedTask);
 
-      if (fetchedTask.poster_id) {
-        try {
-          const p = await fetchUserById(fetchedTask.poster_id);
-          setPosterUser(p);
-        } catch (e) {
-          console.warn('Could not fetch poster user details:', e);
-        }
-      }
-
-      if (fetchedTask.worker_id) {
-        try {
-          const w = await fetchUserById(fetchedTask.worker_id);
-          setWorkerUser(w);
-        } catch (e) {
-          console.warn('Could not fetch worker user details:', e);
-        }
-      }
-
-      // Fetch submissions
-      try {
-        const subs = await fetchTaskSubmissions(taskId);
-        setSubmissions(subs);
-
-        // Fetch existing reviews for rejected or selected submissions
-        const reviewMap: Record<number, PosterReview> = {};
-        await Promise.all(
-          subs
-            .filter(s => s.status === 'rejected' || s.status === 'selected')
-            .map(async (s) => {
-              try {
-                const review = await fetchSubmissionReview(s.id);
-                if (review) reviewMap[s.id] = review;
-              } catch { /* no review yet */ }
-            })
-        );
-        setSubmittedReviews(reviewMap);
-      } catch (e) {
-        console.warn('Could not fetch submissions:', e);
-      }
-
-      // Fetch poster reviews / score
-      try {
-        const posterWallet = fetchedTask.poster_wallet_address;
-        if (posterWallet) {
-          const score = await fetchPosterReviews(posterWallet);
-          setPosterScore(score);
-        }
-      } catch (e) {
-        console.warn('Could not fetch poster reviews:', e);
-      }
-
-      try {
-        const escrowStatus = await fetchTaskEscrow(taskId);
-        setOnchainEscrow(escrowStatus.onchain);
-      } catch (e) {
-        console.warn('Could not fetch on-chain escrow info:', e);
-      }
+      // Fetch all dependent data concurrently
+      await Promise.all([
+        (async () => {
+          if (fetchedTask.poster_id) {
+            try {
+              const p = await fetchUserById(fetchedTask.poster_id);
+              setPosterUser(p);
+            } catch (e) { console.warn('Could not fetch poster user details:', e); }
+          }
+        })(),
+        (async () => {
+          if (fetchedTask.worker_id) {
+            try {
+              const w = await fetchUserById(fetchedTask.worker_id);
+              setWorkerUser(w);
+            } catch (e) { console.warn('Could not fetch worker user details:', e); }
+          }
+        })(),
+        (async () => {
+          try {
+            const subs = await fetchTaskSubmissions(taskId);
+            setSubmissions(subs);
+            const reviewMap: Record<number, PosterReview> = {};
+            await Promise.all(
+              subs
+                .filter(s => s.status === 'rejected' || s.status === 'selected')
+                .map(async (s) => {
+                  try {
+                    const review = await fetchSubmissionReview(s.id);
+                    if (review) reviewMap[s.id] = review;
+                  } catch { /* no review yet */ }
+                })
+            );
+            setSubmittedReviews(reviewMap);
+          } catch (e) { console.warn('Could not fetch submissions:', e); }
+        })(),
+        (async () => {
+          try {
+            if (fetchedTask.poster_wallet_address) {
+              const score = await fetchPosterReviews(fetchedTask.poster_wallet_address);
+              setPosterScore(score);
+            }
+          } catch (e) { console.warn('Could not fetch poster reviews:', e); }
+        })(),
+        (async () => {
+          try {
+            const escrowStatus = await fetchTaskEscrow(taskId);
+            setOnchainEscrow(escrowStatus.onchain);
+          } catch (e) { console.warn('Could not fetch on-chain escrow info:', e); }
+        })()
+      ]);
     } catch (err) {
       console.error(err);
       setError("Task not found or backend unavailable.");

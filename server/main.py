@@ -504,8 +504,6 @@ def _submission_to_response(sub: Submission) -> dict:
 #  App Initialization
 # ═══════════════════════════════════════════════════════════════
 
-init_db()
-
 app = FastAPI(title="Taskbit API", version="2.0.0")
 
 app.add_middleware(
@@ -794,8 +792,23 @@ def list_tasks(
                 )
             else:
                 query = query.filter(Task.status == task_status)
-    return [_task_to_response(t, db) for t in query.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()]
+    tasks = query.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
+    
+    # Batch fetch submission counts to avoid N+1 queries
+    task_ids = [t.id for t in tasks]
+    counts = {}
+    if task_ids:
+        from sqlalchemy import func
+        results = db.query(Submission.task_id, func.count(Submission.id)).filter(Submission.task_id.in_(task_ids)).group_by(Submission.task_id).all()
+        counts = {task_id: count for task_id, count in results}
 
+    response_list = []
+    for t in tasks:
+        resp = TaskResponse.model_validate(t).model_dump()
+        resp["submission_count"] = counts.get(t.id, 0)
+        response_list.append(resp)
+        
+    return response_list
 
 @app.get("/tasks/{task_id}", response_model=TaskResponse)
 def get_task(task_id: int, db: Session = Depends(get_db)):
