@@ -39,7 +39,7 @@ export default function Navbar() {
     <header className={styles.header}>
       <div className={styles.container}>
         <Link href="/" className={styles.brandLink}>
-          <img src="/taskbit_logo.png" alt="Taskbit Logo" className={styles.logo} />
+          <img src="/logo.png" alt="Taskbit Logo" className={styles.logo} />
           <span className={styles.brandName}>Taskbit</span>
         </Link>
 

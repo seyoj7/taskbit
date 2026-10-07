@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Taskbit · Arc-Native Tasks & Microgrants Marketplace",
-  description: "Post verifiable tasks with USDC bounties. Builders complete tasks, submit proof, and get paid instantly via smart contract escrow.",
+  title: "Taskbit",
+  description: "Arc-native Proof-of-Work marketplace. Post verifiable tasks with USDC bounties, submit proof, and get paid instantly via smart contract escrow.",
   icons: {
-    icon: "/taskbit_logo.png",
+    icon: "/logo.png",
   },
 };
 

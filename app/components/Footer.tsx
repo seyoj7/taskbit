@@ -6,11 +6,11 @@ export default function Footer() {
     <footer className={styles.footer}>
       <div className={styles.container}>
         <div className={styles.brand}>
-          <Image src="/taskbit_logo.png" alt="Taskbit" width={24} height={24} className={styles.logo} />
+          <Image src="/logo.png" alt="Taskbit" width={24} height={24} className={styles.logo} />
           <span className={styles.brandName}>Taskbit</span>
           <span>© 2026. All rights reserved.</span>
         </div>
-        
+
         <div className={styles.links}>
           <a href="https://github.com/seyoj7/taskbit" target="_blank" rel="noopener noreferrer" className={styles.link}>GitHub ↗</a>
           <a href="https://docs.arc.io/" target="_blank" rel="noopener noreferrer" className={styles.link}>Arc Docs ↗</a>
