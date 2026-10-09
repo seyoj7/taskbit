@@ -131,7 +131,6 @@ export default function Navbar() {
                   <div className={styles.networkSummary}>
                     <span className={styles.networkLabel}>Network</span>
                     <span className={styles.networkValue}>
-                      <span className={styles.networkDot} />
                       Arc Mainnet
                     </span>
                   </div>

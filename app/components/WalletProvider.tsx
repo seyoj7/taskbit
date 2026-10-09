@@ -180,7 +180,24 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const existingToken = getAuthToken();
+    let reusableToken = false;
     if (existingToken) {
+      try {
+        const payloadPart = existingToken.split('.')[1];
+        const normalizedPayload = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+        const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=');
+        const payload = JSON.parse(window.atob(paddedPayload));
+        reusableToken =
+          typeof payload.wallet === 'string' &&
+          payload.wallet.toLowerCase() === address.toLowerCase() &&
+          typeof payload.exp === 'number' &&
+          payload.exp * 1000 > Date.now();
+      } catch {
+        reusableToken = false;
+      }
+    }
+
+    if (reusableToken) {
       try {
         const userData = await authWallet(address);
         setUser(userData);
@@ -189,6 +206,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       } catch (err) {
         setAuthToken(null);
       }
+    } else if (existingToken) {
+      setAuthToken(null);
     }
 
     if (provider) {
@@ -243,9 +262,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           }
           await authenticate(accounts[0], provider);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("User rejected wallet connection:", err);
         disconnectWallet();
+        if (err?.code === 4001 || err?.message?.toLowerCase?.().includes('user rejected')) {
+          alert("Wallet connection was cancelled.");
+        } else {
+          alert(`Wallet connection failed: ${err?.message || 'Could not connect to your wallet.'}`);
+        }
       } finally {
         setIsLoading(false);
       }

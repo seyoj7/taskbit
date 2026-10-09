@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import styles from './TaskCard.module.css';
 
 interface TaskCardProps {
@@ -13,7 +13,6 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ id, title, description, bounty, status, poster_wallet_address }: TaskCardProps) {
-  const router = useRouter();
   const formattedId = typeof id === 'number' ? `#${String(id).padStart(4, '0')}` : `#${id}`;
 
   const renderStatusBadge = () => {
@@ -87,8 +86,8 @@ export default function TaskCard({ id, title, description, bounty, status, poste
   };
 
   return (
-    <div
-      onClick={() => router.push(`/marketplace/${id}`)}
+    <Link
+      href={`/marketplace/${id}`}
       className={styles.card}
     >
       <div className={styles.headerRow}>
@@ -168,6 +167,6 @@ export default function TaskCard({ id, title, description, bounty, status, poste
           <span className={styles.actionArrow}>↗</span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
