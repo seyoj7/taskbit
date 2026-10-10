@@ -12,7 +12,7 @@ import jwt
 from eth_account.messages import encode_defunct
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 if __package__:
     from .database import AuthChallenge, PosterReview, Submission, Task, User, get_db
@@ -577,7 +577,9 @@ def list_tasks(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Task)
+    # TaskResponse reads poster_wallet_address from the related poster. Eager
+    # load it here so listing many tasks doesn't issue one user query per task.
+    query = db.query(Task).options(joinedload(Task.poster))
     if task_status:
         if task_status == "approved":
             # Include tasks explicitly approved, plus legacy archived/paid tasks

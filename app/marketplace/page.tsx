@@ -50,20 +50,32 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const loadTasks = async () => {
+    let active = true;
+    Promise.resolve().then(() => {
+      if (!active) return;
       setLoading(true);
       setError(null);
+    });
+
+    const loadTasks = async () => {
       try {
         const data = await fetchTasks(activeTab === 'all' ? undefined : activeTab);
+        if (!active) return;
         setTasks(data);
       } catch (err) {
         console.error(err);
-        setError('Unable to sync tasks. Ensure the FastAPI backend is running.');
+        if (active) {
+          setError('Unable to sync tasks. Ensure the backend is running.');
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     loadTasks();
+
+    return () => {
+      active = false;
+    };
   }, [activeTab]);
 
   const filteredTasks = useMemo(() => {
@@ -166,9 +178,18 @@ export default function Dashboard() {
           </div>
 
           {loading && (
-            <div className={styles.loadingContainer}>
-              <div className={styles.spinner} />
-              Syncing marketplace data…
+            <div className={styles.taskGrid} aria-label="Loading marketplace tasks" aria-busy="true">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div className={`antares-card ${styles.taskSkeleton}`} key={index}>
+                  <div className={styles.skeletonTitle} />
+                  <div className={styles.skeletonLine} />
+                  <div className={styles.skeletonLineShort} />
+                  <div className={styles.skeletonFooter}>
+                    <div className={styles.skeletonBadge} />
+                    <div className={styles.skeletonAmount} />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

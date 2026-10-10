@@ -184,6 +184,61 @@
   animation-delay: 0.2s;
 }
 
+.taskSkeleton {
+  min-height: 190px;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.skeletonTitle,
+.skeletonLine,
+.skeletonLineShort,
+.skeletonBadge,
+.skeletonAmount {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonTitle {
+  width: 72%;
+  height: 20px;
+  margin-bottom: 24px;
+}
+
+.skeletonLine {
+  width: 100%;
+  height: 12px;
+  margin-bottom: 10px;
+}
+
+.skeletonLineShort {
+  width: 58%;
+  height: 12px;
+}
+
+.skeletonFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+}
+
+.skeletonBadge {
+  width: 76px;
+  height: 24px;
+}
+
+.skeletonAmount {
+  width: 84px;
+  height: 20px;
+}
+
+@keyframes skeletonShimmer {
+  to { background-position: -200% 0; }
+}
+
 @media (max-width: 600px) {
   .statBar {
     grid-template-columns: repeat(2, 1fr);
