@@ -139,6 +139,30 @@
   line-height: 1.15;
 }
 
+.statSkeleton {
+  display: inline-block;
+  width: 66px;
+  height: 17px;
+  border-radius: 999px;
+  vertical-align: -2px;
+  background: linear-gradient(100deg, var(--surface-3) 20%, rgba(255, 255, 255, 0.12) 40%, var(--surface-3) 60%);
+  background-size: 200% 100%;
+  animation: statSkeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.statTagSkeleton {
+  width: 18px;
+  height: 9px;
+  margin-right: 3px;
+  vertical-align: -1px;
+}
+
+@keyframes statSkeletonShimmer {
+  to {
+    background-position-x: -200%;
+  }
+}
+
 .statSubtext {
   font-size: 10.5px;
   color: var(--muted);

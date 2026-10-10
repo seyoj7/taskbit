@@ -8,7 +8,12 @@ import styles from './page.module.css';
 
 const repSequence = [10, 3, -15, 9, 18, 3, -17, 24, 8, -2, 15, -8, -16];
 
+function StatSkeleton({ className = '' }: { className?: string }) {
+  return <span className={`${styles.statSkeleton} ${className}`} aria-label="Loading" />;
+}
+
 export default function Home() {
+  const [statsLoading, setStatsLoading] = useState(true);
   const [stats, setStats] = useState({
     totalVolume: 0,
     activeCount: 0,
@@ -33,6 +38,9 @@ export default function Home() {
       })
       .catch(() => {
         // Leave at 0 on failure
+      })
+      .finally(() => {
+        if (mounted) setStatsLoading(false);
       });
 
     return () => {
@@ -113,7 +121,7 @@ export default function Home() {
                     <span className={styles.statTag}>USDC</span>
                   </div>
                   <div className={styles.statValueAccent}>
-                    ${stats.totalVolume.toLocaleString()}
+                    {statsLoading ? <StatSkeleton /> : `$${stats.totalVolume.toLocaleString()}`}
                   </div>
                   <div className={styles.statSubtext}>
                     Locked in smart contracts
@@ -123,10 +131,12 @@ export default function Home() {
                 <div className={styles.statBox}>
                   <div className={styles.statTopRow}>
                     <span className={styles.statLabel}>Total Bounties</span>
-                    <span className={styles.statTag}>{stats.openCount} Open</span>
+                    <span className={styles.statTag}>
+                      {statsLoading ? <><StatSkeleton className={styles.statTagSkeleton} /> Open</> : `${stats.openCount} Open`}
+                    </span>
                   </div>
                   <div className={styles.statValue}>
-                    {stats.activeCount}
+                    {statsLoading ? <StatSkeleton /> : stats.activeCount}
                   </div>
                   <div className={styles.statSubtext}>
                     Verifiable builder tasks
